@@ -111,7 +111,7 @@ export default function Landing() {
 
         <div className="flex justify-center gap-4 pt-4">
           <button 
-            onClick={() => navigate(isAuthenticated ? "/dashboard" : "/signup")}
+            onClick={() => navigate(isAuthenticated ? "/dashboard" : "/login")}
             className="flex items-center gap-2 px-7 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-sm transition shadow-lg shadow-indigo-500/20 transform hover:-translate-y-0.5"
           >
             Start Free Workspace
@@ -199,8 +199,8 @@ export default function Landing() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { plan: "Free Starter", price: "$0", features: ["1 Workspace", "Basic task checklists", "Light / Dark theme defaults"], cta: "Start Free", action: () => navigate("/signup") },
-              { plan: "Pro Analytics", price: "$12", features: ["Unlimited Workspace settings", "SaaS Analytics & charts", "Bulk actions controllers", "Email invitation links"], cta: "Activate Pro", action: () => navigate("/signup"), popular: true },
+              { plan: "Free Starter", price: "$0", features: ["1 Workspace", "Basic task checklists", "Light / Dark theme defaults"], cta: "Start Free", action: () => navigate("/login") },
+              { plan: "Pro Analytics", price: "$12", features: ["Unlimited Workspace settings", "SaaS Analytics & charts", "Bulk actions controllers", "Email invitation links"], cta: "Activate Pro", action: () => navigate("/login"), popular: true },
               { plan: "Enterprise Premium", price: "Custom", features: ["Custom role permission matrices", "Direct Neon DB integrations", "99.9% Latency Status checkers", "Priority developer support"], cta: "Contact Sales", action: () => navigate("/login") }
             ].map((tier, idx) => (
               <div key={idx} className={`bg-white dark:bg-slate-900 border ${tier.popular ? "border-indigo-500 shadow-xl" : "dark:border-slate-800"} rounded-[32px] p-8 flex flex-col justify-between relative`}>
