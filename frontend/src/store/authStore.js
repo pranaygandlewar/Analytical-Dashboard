@@ -13,7 +13,7 @@ const useAuthStore = create((set) => ({
         password,
       });
 
-      localStorage.setItem(
+      sessionStorage.setItem(
         "token",
         res.data.access_token
       );
@@ -77,7 +77,7 @@ const useAuthStore = create((set) => ({
   },
 
   checkAuth: async () => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
 
     if (!token) {
       set({
@@ -97,7 +97,7 @@ const useAuthStore = create((set) => ({
         authLoading: false,
       });
     } catch {
-      localStorage.removeItem("token");
+      sessionStorage.removeItem("token");
 
       set({
         user: null,
@@ -108,7 +108,7 @@ const useAuthStore = create((set) => ({
   },
 
   logout: () => {
-    localStorage.removeItem("token");
+    sessionStorage.removeItem("token");
 
     set({
       user: null,

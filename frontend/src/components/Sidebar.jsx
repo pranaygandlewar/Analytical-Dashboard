@@ -10,7 +10,9 @@ import {
   CheckSquare,
   ChevronLeft,
   ChevronRight,
-  Menu
+  Menu,
+  HelpCircle,
+  MessageSquare
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -19,7 +21,7 @@ import useAuthStore from "../store/authStore";
 import api from "../services/api";
 import Avatar from "./Avatar";
 
-function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }) {
+function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen, companyName, companyLogo }) {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
@@ -65,22 +67,26 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
   if (user?.role === "admin") {
     menu = [
-      { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+      { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
       { icon: ShieldCheck, label: "Admin Panel", path: "/admin" },
       { icon: Users, label: "Team", path: "/team" },
       { icon: FolderKanban, label: "Projects", path: "/projects" },
       { icon: Bell, label: "Notifications", path: "/notifications" },
       { icon: BarChart3, label: "Analytics", path: "/analytics" },
       { icon: Settings, label: "Settings", path: "/settings" },
+      { icon: HelpCircle, label: "Help Center", path: "/help" },
+      { icon: MessageSquare, label: "Feedback", path: "/feedback" }
     ];
   }
 
   if (user?.role === "member") {
     menu = [
-      { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+      { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
       { icon: CheckSquare, label: "My Tasks", path: "/tasks" },
       { icon: Bell, label: "Notifications", path: "/notifications" },
       { icon: Settings, label: "Settings", path: "/settings" },
+      { icon: HelpCircle, label: "Help Center", path: "/help" },
+      { icon: MessageSquare, label: "Feedback", path: "/feedback" }
     ];
   }
 
@@ -96,9 +102,13 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
         {/* Sidebar Header (Logo & Collapse toggle) */}
         <div className="mb-14 flex items-center justify-between">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center font-bold text-xl shadow-lg shrink-0">
-              T
-            </div>
+            {companyLogo ? (
+              <img src={companyLogo} alt="Logo" className="w-12 h-12 rounded-2xl object-cover shadow-lg shrink-0" />
+            ) : (
+              <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center font-bold text-xl shadow-lg shrink-0">
+                {companyName ? companyName.charAt(0).toUpperCase() : "T"}
+              </div>
+            )}
 
             {!isCollapsed && (
               <motion.div
@@ -106,7 +116,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
                 animate={{ opacity: 1, x: 0 }}
                 className="whitespace-nowrap"
               >
-                <h1 className="text-2xl font-bold">TeamPulse</h1>
+                <h1 className="text-2xl font-bold">{companyName || "TeamPulse"}</h1>
                 <p className="text-slate-400 text-sm">Workspace</p>
               </motion.div>
             )}

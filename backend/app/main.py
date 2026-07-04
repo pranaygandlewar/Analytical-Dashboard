@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from .database import engine, SessionLocal, Base
-from .models import User, Task, Notification, WorkspaceSetting
+from .models import User, Task, Notification, WorkspaceSetting, Feedback
 from .schemas import UserCreate, UserLogin, TaskCreate, TaskUpdate, ProfileUpdate, PasswordUpdate
 from fastapi.middleware.cors import CORSMiddleware
 from .auth import (
@@ -826,3 +826,39 @@ def bulk_change_users_role(payload: dict, db: Session = Depends(get_db), current
     db.query(User).filter(User.id.in_(user_ids)).update({User.role: role}, synchronize_session=False)
     db.commit()
     return {"message": f"Successfully updated {len(user_ids)} users to role {role}"}
+
+
+@app.post("/feedback")
+def submit_feedback(payload: dict, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    category = payload.get("category", "general")
+    rating = payload.get("rating")
+    content = payload.get("content", "")
+    
+    new_feedback = Feedback(
+        user_id=current_user.id,
+        category=category,
+        rating=rating,
+        content=content
+    )
+    db.add(new_feedback)
+    db.commit()
+    return {"message": "Feedback submitted successfully"}
+
+
+@app.get("/feedback")
+def get_feedback_list(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    feedbacks = db.query(Feedback).order_by(Feedback.id.desc()).all()
+    
+    return [
+        {
+            "id": f.id,
+            "user_name": db.query(User).filter(User.id == f.user_id).first().name if db.query(User).filter(User.id == f.user_id).first() else "Unknown",
+            "category": f.category,
+            "rating": f.rating,
+            "content": f.content,
+            "created_at": f.created_at.isoformat() if f.created_at else None
+        }
+        for f in feedbacks
+    ]

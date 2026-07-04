@@ -17,6 +17,11 @@ const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const MyTasks = lazy(() => import("./pages/myTasks"));
 
+const Landing = lazy(() => import("./pages/Landing"));
+const HelpCenter = lazy(() => import("./pages/HelpCenter"));
+const SystemStatus = lazy(() => import("./pages/SystemStatus"));
+const FeedbackSystem = lazy(() => import("./pages/FeedbackSystem"));
+
 function App() {
   const checkAuth = useAuthStore((state) => state.checkAuth);
 
@@ -41,11 +46,13 @@ function App() {
       <BrowserRouter>
         <Suspense fallback={<PageLoader />}>
           <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/status" element={<SystemStatus />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
 
             <Route
-              path="/"
+              path="/dashboard"
               element={
                 <ProtectedRoute>
                   <Dashboard />
@@ -115,6 +122,24 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={["admin"]}>
                   <Analytics />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/help"
+              element={
+                <ProtectedRoute>
+                  <HelpCenter />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/feedback"
+              element={
+                <ProtectedRoute>
+                  <FeedbackSystem />
                 </ProtectedRoute>
               }
             />

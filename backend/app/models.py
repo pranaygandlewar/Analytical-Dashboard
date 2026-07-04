@@ -54,3 +54,14 @@ class WorkspaceSetting(Base):
     id = Column(Integer, primary_key=True, index=True)
     key = Column(String, unique=True, index=True)
     value = Column(String)
+
+
+class Feedback(Base):
+    __tablename__ = "feedbacks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    category = Column(String)
+    rating = Column(Integer, nullable=True)
+    content = Column(String)
+    created_at = Column(DateTime(timezone=True), default=func.now())

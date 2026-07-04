@@ -1,16 +1,55 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import CommandPalette from "./CommandPalette";
 import AIAssistant from "./AIAssistant";
 import { Menu } from "lucide-react";
+import api from "../services/api";
 
 function AppLayout({ children }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
+  // Personalization settings
+  const [companyName, setCompanyName] = useState("TeamPulse");
+  const [companyLogo, setCompanyLogo] = useState("");
+  const [accentColor, setAccentColor] = useState("");
+
+  useEffect(() => {
+    api.get("/workspace/settings")
+      .then(res => {
+        const settings = res.data;
+        const nameSet = settings.find(s => s.key === "company_name")?.value || "TeamPulse";
+        const logoSet = settings.find(s => s.key === "company_logo")?.value || "";
+        const colorSet = settings.find(s => s.key === "accent_color")?.value || "";
+        const faviconSet = settings.find(s => s.key === "company_favicon")?.value;
+
+        setCompanyName(nameSet);
+        setCompanyLogo(logoSet);
+        setAccentColor(colorSet);
+
+        // Dynamically customize Tab Title
+        document.title = `${nameSet} Workspace`;
+
+        // Dynamically customize Favicon link
+        if (faviconSet) {
+          let link = document.querySelector("link[rel~='icon']");
+          if (!link) {
+            link = document.createElement("link");
+            link.rel = "icon";
+            document.getElementsByTagName("head")[0].appendChild(link);
+          }
+          link.href = faviconSet;
+        }
+      })
+      .catch(err => console.log("Personalization settings loader error", err));
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-slate-100 to-emerald-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 p-3 sm:p-6 lg:p-8 flex flex-col justify-center">
+    <div 
+      className="min-h-screen bg-gradient-to-br from-blue-100 via-slate-100 to-emerald-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 p-3 sm:p-6 lg:p-8 flex flex-col justify-center transition-all duration-300"
+      style={accentColor ? { "--accent-color": accentColor } : {}}
+    >
       
       {/* Mobile Header Bar */}
       <div className="lg:hidden flex items-center justify-between bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/60 dark:border-slate-800 rounded-2xl px-5 py-4 mb-4 shadow-sm">
@@ -21,7 +60,15 @@ function AppLayout({ children }) {
           >
             <Menu size={20} />
           </button>
-          <span className="font-extrabold text-slate-900 dark:text-white text-base">TeamPulse</span>
+          
+          <div className="flex items-center gap-2">
+            {companyLogo ? (
+              <img src={companyLogo} alt="Logo" className="h-6 w-6 rounded-lg object-cover" />
+            ) : (
+              <div className="h-6 w-6 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-[10px]">T</div>
+            )}
+            <span className="font-extrabold text-slate-900 dark:text-white text-base">{companyName}</span>
+          </div>
         </div>
       </div>
 
@@ -39,7 +86,9 @@ function AppLayout({ children }) {
           isCollapsed={isCollapsed} 
           setIsCollapsed={setIsCollapsed} 
           isMobileOpen={isMobileOpen} 
-          setIsMobileOpen={setIsMobileOpen} 
+          setIsMobileOpen={setIsMobileOpen}
+          companyName={companyName}
+          companyLogo={companyLogo}
         />
 
         <div className="flex-1 flex flex-col overflow-hidden">

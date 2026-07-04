@@ -36,7 +36,7 @@ export default function Login() {
     }
 
     toast.success("Welcome back");
-    navigate("/");
+    navigate("/dashboard");
     setLoading(false);
   };
 
