@@ -18,6 +18,10 @@ const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const MyTasks = lazy(() => import("./pages/myTasks"));
 
+const Checkout = lazy(() => import("./pages/Checkout"));
+const SuccessPage = lazy(() => import("./pages/SuccessPage"));
+const FailedPage = lazy(() => import("./pages/FailedPage"));
+
 const Landing = lazy(() => import("./pages/Landing"));
 const HelpCenter = lazy(() => import("./pages/HelpCenter"));
 const SystemStatus = lazy(() => import("./pages/SystemStatus"));
@@ -33,6 +37,33 @@ function AnimatedRoutes({ darkMode, setDarkMode }) {
         <Route path="/status" element={<SystemStatus />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+
+        <Route
+          path="/checkout"
+          element={
+            <ProtectedRoute>
+              <Checkout />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/payment-success"
+          element={
+            <ProtectedRoute>
+              <SuccessPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/payment-failed"
+          element={
+            <ProtectedRoute>
+              <FailedPage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/dashboard"

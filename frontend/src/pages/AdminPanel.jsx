@@ -33,8 +33,22 @@ import {
   CheckCircle2,
   Clock,
   Layers,
-  Sparkles
+  Sparkles,
+  CreditCard
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  AreaChart,
+  Area
+} from "recharts";
+import useAuthStore from "../store/authStore";
+import PremiumLockOverlay from "../components/PremiumLockOverlay";
 import {
   SkeletonTaskCard,
   SkeletonWideCard
@@ -63,7 +77,16 @@ function SkeletonCard() {
 }
 
 export default function AdminPanel() {
+  const user = useAuthStore((state) => state.user);
   const [activeTab, setActiveTab] = useState("overview");
+  const [billingData, setBillingData] = useState({
+    total_revenue: 0,
+    active_subscriptions: 0,
+    mrr: 0,
+    recent_payments: [],
+    subscription_analytics: { Free: 0, Pro: 0, Business: 0, Enterprise: 0 }
+  });
+  const [billingLoading, setBillingLoading] = useState(false);
   const [members, setMembers] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -168,6 +191,24 @@ export default function AdminPanel() {
     }, 4000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "billing") {
+      const fetchBilling = async () => {
+        setBillingLoading(true);
+        try {
+          const res = await api.get("/admin/billing/dashboard");
+          setBillingData(res.data);
+        } catch (err) {
+          console.error("Failed to load billing metrics", err);
+          toast.error("Failed to load billing dashboard analytics");
+        } finally {
+          setBillingLoading(false);
+        }
+      };
+      fetchBilling();
+    }
+  }, [activeTab]);
 
   // Workspace overview KPIs calculations
   const totalUsersCount = allUsers.length;
@@ -514,6 +555,7 @@ export default function AdminPanel() {
           { id: "permissions", label: "Permissions Matrix", icon: ShieldCheck },
           { id: "tasks", label: "Tasks Control", icon: CheckSquare },
           { id: "settings", label: "Workspace Settings", icon: Settings },
+          { id: "billing", label: "Billing Metrics", icon: CreditCard },
           { id: "security", label: "System Security & Data", icon: Lock }
         ].map((tab) => {
           const Icon = tab.icon;
@@ -1245,7 +1287,11 @@ export default function AdminPanel() {
 
           {/* Tab 5: Workspace Settings */}
           {activeTab === "settings" && (
-            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[32px] p-8 max-w-xl mx-auto w-full space-y-6">
+            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[32px] p-8 max-w-xl mx-auto w-full space-y-6 relative overflow-hidden min-h-[350px]">
+              {(!user?.subscription_plan || (user.subscription_plan !== "Business" && user.subscription_plan !== "Enterprise")) && (
+                <PremiumLockOverlay requiredPlan="Business" />
+              )}
+              <div className={(!user?.subscription_plan || (user.subscription_plan !== "Business" && user.subscription_plan !== "Enterprise")) ? "pointer-events-none select-none blur-[4px] opacity-35 w-full h-full" : ""}>
               <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
                 <Settings className="text-indigo-600" size={18} />
                 <h3 className="font-bold text-slate-950 dark:text-white text-base">Global Preferences</h3>
@@ -1319,6 +1365,7 @@ export default function AdminPanel() {
                     ]}
                   />
                 </div>
+              </div>
               </div>
             </div>
           )}
@@ -1461,6 +1508,174 @@ export default function AdminPanel() {
           </div>
         </div>
       )}
+
+      {/* Tab 7: Billing Metrics & Subscribers Dashboard */}
+          {activeTab === "billing" && (
+            <div className="space-y-6 animate-fadeIn">
+              {billingLoading ? (
+                <div className="min-h-[400px] flex items-center justify-center font-bold text-slate-500">
+                  <RefreshCw size={24} className="animate-spin text-indigo-600 mr-2" />
+                  Loading Billing Diagnostics...
+                </div>
+              ) : (
+                <>
+                  {/* KPI Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fadeIn">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-850 rounded-3xl p-6 shadow-sm flex items-center justify-between transition-colors">
+                      <div className="space-y-1">
+                        <span className="text-xs text-slate-450 dark:text-slate-500 uppercase font-bold">Total Revenue</span>
+                        <h4 className="text-3xl font-black text-slate-900 dark:text-white">₹{billingData.total_revenue}</h4>
+                      </div>
+                      <div className="h-12 w-12 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center shadow-sm">
+                        <Activity size={20} />
+                      </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-850 rounded-3xl p-6 shadow-sm flex items-center justify-between transition-colors">
+                      <div className="space-y-1">
+                        <span className="text-xs text-slate-450 dark:text-slate-500 uppercase font-bold">Active Subscriptions</span>
+                        <h4 className="text-3xl font-black text-slate-900 dark:text-white">{billingData.active_subscriptions}</h4>
+                      </div>
+                      <div className="h-12 w-12 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center shadow-sm">
+                        <Users size={20} />
+                      </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-850 rounded-3xl p-6 shadow-sm flex items-center justify-between transition-colors">
+                      <div className="space-y-1">
+                        <span className="text-xs text-slate-450 dark:text-slate-500 uppercase font-bold">MRR (Recurring)</span>
+                        <h4 className="text-3xl font-black text-slate-900 dark:text-white">₹{billingData.mrr}</h4>
+                      </div>
+                      <div className="h-12 w-12 bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center shadow-sm">
+                        <CreditCard size={20} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Graphs and Sub Analytics */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Revenue growth mockup */}
+                    <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-850 rounded-[32px] p-6 shadow-sm transition-colors">
+                      <h4 className="font-bold text-slate-900 dark:text-white mb-4">Revenue Growth (Last 6 Months)</h4>
+                      <div className="h-[260px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart
+                            data={[
+                              { month: "Jan", revenue: billingData.total_revenue * 0.4 },
+                              { month: "Feb", revenue: billingData.total_revenue * 0.55 },
+                              { month: "Mar", revenue: billingData.total_revenue * 0.7 },
+                              { month: "Apr", revenue: billingData.total_revenue * 0.8 },
+                              { month: "May", revenue: billingData.total_revenue * 0.9 },
+                              { month: "Jun", revenue: billingData.total_revenue }
+                            ]}
+                            margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                          >
+                            <defs>
+                              <linearGradient id="billingRev" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/>
+                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                            <Tooltip contentStyle={{ borderRadius: '16px', background: '#0f172a', border: 'none', color: '#fff', fontSize: '12px' }} />
+                            <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#billingRev)" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Subscriber allocation */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-850 rounded-[32px] p-6 shadow-sm transition-colors flex flex-col justify-between">
+                      <h4 className="font-bold text-slate-900 dark:text-white mb-4">Plan Distribution</h4>
+                      <div className="h-[180px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={[
+                              { name: "Free", count: billingData.subscription_analytics.Free },
+                              { name: "Pro", count: billingData.subscription_analytics.Pro },
+                              { name: "Biz", count: billingData.subscription_analytics.Business },
+                              { name: "Ent", count: billingData.subscription_analytics.Enterprise }
+                            ]}
+                            margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                          >
+                            <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                            <Tooltip contentStyle={{ borderRadius: '16px', background: '#0f172a', border: 'none', color: '#fff', fontSize: '12px' }} />
+                            <Bar dataKey="count" fill="#818cf8" radius={[8, 8, 0, 0]}>
+                              <Cell fill="#94a3b8" />
+                              <Cell fill="#6366f1" />
+                              <Cell fill="#8b5cf6" />
+                              <Cell fill="#ec4899" />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="grid grid-cols-4 text-center mt-3 text-[10px] font-extrabold uppercase text-slate-400">
+                        <div>Free</div>
+                        <div className="text-indigo-600">Pro</div>
+                        <div className="text-purple-600">Biz</div>
+                        <div className="text-pink-600">Ent</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment History Log */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-850 rounded-[32px] p-8 shadow-sm overflow-hidden transition-colors">
+                    <h4 className="font-bold text-slate-900 dark:text-white mb-6">Recent Payments Log</h4>
+                    <div className="overflow-x-auto max-h-[300px]">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b dark:border-slate-800 text-slate-400 text-xs font-extrabold uppercase tracking-wider">
+                            <th className="pb-4 px-4">User</th>
+                            <th className="pb-4 px-4">Plan</th>
+                            <th className="pb-4 px-4">Amount</th>
+                            <th className="pb-4 px-4">Method</th>
+                            <th className="pb-4 px-4">Status</th>
+                            <th className="pb-4 px-4">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                          {billingData.recent_payments.map((p) => (
+                            <tr key={p.id} className="text-slate-800 dark:text-slate-200 text-sm">
+                              <td className="py-4 px-4">
+                                <div>
+                                  <div className="font-bold">{p.user_name}</div>
+                                  <div className="text-xs text-slate-400 font-medium">{p.user_email}</div>
+                                </div>
+                              </td>
+                              <td className="py-4 px-4 font-semibold">{p.plan}</td>
+                              <td className="py-4 px-4 font-bold">₹{p.amount}</td>
+                              <td className="py-4 px-4 text-slate-550 dark:text-slate-450 font-medium">{p.payment_method}</td>
+                              <td className="py-4 px-4">
+                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                                  p.status === "success" 
+                                    ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50" 
+                                    : "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/50"
+                                }`}>
+                                  {p.status}
+                                </span>
+                              </td>
+                              <td className="py-4 px-4 text-xs text-slate-450 font-semibold">
+                                {new Date(p.created_at).toLocaleDateString()}
+                              </td>
+                            </tr>
+                          ))}
+                          {billingData.recent_payments.length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="text-center py-6 text-slate-400 dark:text-slate-500 font-bold">
+                                No billing transactions recorded yet.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
       {/* Password Reset Modal Dialog */}
       {showResetModal && (

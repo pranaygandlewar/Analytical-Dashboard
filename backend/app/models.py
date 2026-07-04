@@ -18,6 +18,10 @@ class User(Base):
     location = Column(String, nullable=True)
     bio = Column(String, nullable=True)
     status = Column(String, default="active")
+    subscription_plan = Column(String, default="Free")
+    subscription_status = Column(String, default="active")
+    billing_cycle = Column(String, default="monthly")
+    renewal_date = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=func.now())
     last_login = Column(DateTime(timezone=True), default=func.now())
 
@@ -64,4 +68,16 @@ class Feedback(Base):
     category = Column(String)
     rating = Column(Integer, nullable=True)
     content = Column(String)
+    created_at = Column(DateTime(timezone=True), default=func.now())
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    plan = Column(String)
+    amount = Column(Integer)  # in Rupees
+    status = Column(String)  # "success", "failed", "pending"
+    payment_method = Column(String)  # "UPI", "Card"
     created_at = Column(DateTime(timezone=True), default=func.now())

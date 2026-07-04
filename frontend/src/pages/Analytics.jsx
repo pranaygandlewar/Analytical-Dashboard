@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import AppLayout from "../components/AppLayout";
 import api from "../services/api";
+import useAuthStore from "../store/authStore";
+import PremiumLockOverlay from "../components/PremiumLockOverlay";
 import toast from "react-hot-toast";
 import CustomDatePicker from "../components/CustomDatePicker";
 import CustomSelect from "../components/CustomSelect";
@@ -58,6 +60,9 @@ function AnalyticsSkeleton() {
 }
 
 export default function Analytics() {
+  const user = useAuthStore((state) => state.user);
+  const isPremium = user?.subscription_plan && user.subscription_plan !== "Free";
+
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState([]);
   const [members, setMembers] = useState([]);
@@ -436,6 +441,9 @@ export default function Analytics() {
 
   return (
     <AppLayout>
+      <div className="relative">
+        {!isPremium && <PremiumLockOverlay requiredPlan="Pro" />}
+        <div className={!isPremium ? "pointer-events-none select-none blur-[4px] opacity-30" : ""}>
       {/* Header Panel */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mt-8 no-print">
         <div>
@@ -832,6 +840,8 @@ export default function Analytics() {
           </div>
         </div>
       )}
+        </div>
+      </div>
     </AppLayout>
   );
 }

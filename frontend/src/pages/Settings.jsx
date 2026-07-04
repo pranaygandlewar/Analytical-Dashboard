@@ -24,12 +24,75 @@ import {
   FileText,
   Calendar,
   CheckCircle2,
-  Clock
+  Clock,
+  CreditCard
 } from "lucide-react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 
 function Settings({ darkMode, setDarkMode }) {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab") || "profile";
+
   const authUser = useAuthStore((state) => state.user);
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState(tabParam);
+  
+  // Billing States
+  const [billingCycle, setBillingCycle] = useState("monthly");
+  const [billingInfo, setBillingInfo] = useState({
+    subscription_plan: "Free",
+    subscription_status: "active",
+    billing_cycle: "monthly",
+    renewal_date: null,
+    payment_history: []
+  });
+  const [cancelling, setCancelling] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("tab")) {
+      setActiveTab(searchParams.get("tab"));
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setSearchParams({ tab: tabId });
+  };
+
+  const fetchBillingInfo = async () => {
+    try {
+      const res = await api.get("/subscription/me");
+      setBillingInfo(res.data);
+    } catch (err) {
+      console.error("Failed to load billing details", err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "billing") {
+      fetchBillingInfo();
+    }
+  }, [activeTab]);
+
+  const handleCancelSubscription = async () => {
+    if (!window.confirm("Are you sure you want to cancel your premium subscription? This will return your workspace back to the Free plan.")) return;
+    setCancelling(true);
+    try {
+      await api.post("/subscription/cancel");
+      toast.success("Subscription cancelled successfully.");
+      await useAuthStore.getState().checkAuth(); // Refresh user details in store
+      fetchBillingInfo(); // Refresh state
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to cancel subscription.");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleUpgrade = (planId) => {
+    navigate(`/checkout?plan=${planId}&cycle=${billingCycle}`);
+  };
   
   // Profile Info States
   const [profile, setProfile] = useState({
@@ -303,7 +366,7 @@ function Settings({ darkMode, setDarkMode }) {
         </button>
 
         <button
-          onClick={() => setActiveTab("activity")}
+          onClick={() => handleTabChange("activity")}
           className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all ${
             activeTab === "activity" 
               ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-white shadow-sm" 
@@ -312,6 +375,18 @@ function Settings({ darkMode, setDarkMode }) {
         >
           <Activity size={16} />
           Activity Log
+        </button>
+
+        <button
+          onClick={() => handleTabChange("billing")}
+          className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all ${
+            activeTab === "billing" 
+              ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-white shadow-sm" 
+              : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
+          }`}
+        >
+          <CreditCard size={16} />
+          Billing & Subscription
         </button>
       </div>
 
@@ -749,6 +824,225 @@ function Settings({ darkMode, setDarkMode }) {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === "billing" && (
+          <div className="space-y-8 animate-fadeIn">
+            {/* Top overview metrics */}
+            <div className="grid md:grid-cols-2 gap-8">
+              
+              {/* Current plan card */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[32px] p-8 shadow-sm space-y-6">
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase text-slate-400 dark:text-slate-500 tracking-wider">Active Workspace Plan</span>
+                  <h3 className="text-3xl font-black text-slate-900 dark:text-white mt-1">
+                    {billingInfo.subscription_plan}
+                  </h3>
+                </div>
+
+                <div className="space-y-4 text-sm font-semibold">
+                  <div className="flex justify-between py-2 border-b dark:border-slate-850">
+                    <span className="text-slate-450">Billing Cycle</span>
+                    <span className="text-slate-900 dark:text-white capitalize">{billingInfo.billing_cycle || "Monthly"}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b dark:border-slate-850">
+                    <span className="text-slate-450">Subscription Status</span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      billingInfo.subscription_status === "active" 
+                        ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
+                        : "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
+                    }`}>
+                      {billingInfo.subscription_status || "Active"}
+                    </span>
+                  </div>
+                  {billingInfo.renewal_date && (
+                    <div className="flex justify-between py-2 border-b dark:border-slate-850">
+                      <span className="text-slate-450">Next Renewal</span>
+                      <span className="text-slate-900 dark:text-white">
+                        {new Date(billingInfo.renewal_date).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {billingInfo.subscription_plan !== "Free" && (
+                  <button
+                    onClick={handleCancelSubscription}
+                    disabled={cancelling}
+                    className="w-full py-3 px-5 border border-red-200 hover:bg-red-50 dark:border-red-950 dark:hover:bg-red-950/20 text-red-600 dark:text-red-400 rounded-2xl font-bold text-xs transition uppercase tracking-wider"
+                  >
+                    {cancelling ? "Processing Cancellation..." : "Cancel Subscription"}
+                  </button>
+                )}
+              </div>
+
+              {/* Upgrade Billing Switcher */}
+              <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800 rounded-[32px] p-8 shadow-sm flex flex-col justify-between">
+                <div>
+                  <h4 className="text-lg font-black text-slate-900 dark:text-white">Need higher velocity?</h4>
+                  <p className="text-slate-450 dark:text-slate-500 text-xs font-bold mt-1 uppercase tracking-wide">
+                    Switch between monthly and yearly billing cycle
+                  </p>
+
+                  <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl w-fit mt-6 border dark:border-slate-800">
+                    <button
+                      onClick={() => setBillingCycle("monthly")}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                        billingCycle === "monthly" 
+                          ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-white shadow-sm" 
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      Monthly
+                    </button>
+                    <button
+                      onClick={() => setBillingCycle("yearly")}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                        billingCycle === "yearly" 
+                          ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-white shadow-sm" 
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      Yearly (Save 18%)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-8 text-xs text-slate-450 leading-relaxed font-semibold">
+                  <p>
+                    All plans include encrypted data-transfers, task checklists, role access-controls, and custom workspace headers. Cancel anytime from your billing overview panel.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Plans List Cards */}
+            <div className="space-y-4">
+              <h4 className="text-xl font-black text-slate-900 dark:text-white">Workspace Pricing Plans</h4>
+              <div className="grid md:grid-cols-3 gap-6">
+                {[
+                  { 
+                    id: "Pro", 
+                    name: "Pro Plan", 
+                    price: billingCycle === "monthly" ? "₹499" : "₹4,999", 
+                    sub: billingCycle === "monthly" ? "/month" : "/year",
+                    features: ["Advanced analytics charts", "Unrestricted AI queries", "Assign self task automation", "Unlimited notifications history"] 
+                  },
+                  { 
+                    id: "Business", 
+                    name: "Business Plan", 
+                    price: billingCycle === "monthly" ? "₹999" : "₹9,999", 
+                    sub: billingCycle === "monthly" ? "/month" : "/year",
+                    features: ["Includes all Pro features", "Workspace Branding (Logo, Accent)", "Company title configurations", "Priority support pings"] 
+                  },
+                  { 
+                    id: "Enterprise", 
+                    name: "Enterprise Plan", 
+                    price: billingCycle === "monthly" ? "₹2,499" : "₹24,999", 
+                    sub: billingCycle === "monthly" ? "/month" : "/year",
+                    features: ["Includes all Business features", "Multi-role security matrix", "Dedicated workspace subdomain", "SLA uptime agreements"] 
+                  }
+                ].map((p) => {
+                  const isCurrent = billingInfo.subscription_plan === p.id;
+                  return (
+                    <div 
+                      key={p.id} 
+                      className={`bg-white dark:bg-slate-900 border rounded-[32px] p-6 flex flex-col justify-between transition-all ${
+                        isCurrent 
+                          ? "border-indigo-500 dark:border-indigo-800 ring-2 ring-indigo-500/10 shadow-lg" 
+                          : "border-slate-100 dark:border-slate-800 hover:border-slate-200"
+                      }`}
+                    >
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h5 className="font-bold text-slate-900 dark:text-white text-base">{p.name}</h5>
+                          {isCurrent && (
+                            <span className="px-2.5 py-0.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-full text-[9px] font-black uppercase">
+                              Active
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-baseline">
+                          <span className="text-2xl font-black text-slate-900 dark:text-white">{p.price}</span>
+                          <span className="text-slate-450 text-xs ml-1 font-semibold">{p.sub}</span>
+                        </div>
+
+                        <ul className="space-y-2 text-xs font-semibold text-slate-450 dark:text-slate-500 pt-2 border-t dark:border-slate-850">
+                          {p.features.map((f, i) => (
+                            <li key={i} className="flex items-center gap-2">
+                              <span className="h-1.5 w-1.5 bg-indigo-500 rounded-full shrink-0" />
+                              <span>{f}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <button
+                        onClick={() => handleUpgrade(p.id)}
+                        disabled={isCurrent}
+                        className={`w-full py-3 mt-8 rounded-2xl font-bold text-xs transition active:scale-[0.98] ${
+                          isCurrent 
+                            ? "bg-slate-50 dark:bg-slate-800 text-slate-450 dark:text-slate-500 cursor-not-allowed border dark:border-slate-700" 
+                            : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/10"
+                        }`}
+                      >
+                        {isCurrent ? "Current Plan" : "Upgrade Plan"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Payment History grid */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[32px] p-8 shadow-sm overflow-hidden">
+              <h4 className="font-bold text-slate-900 dark:text-white mb-6">Payment Billing Ledger</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b dark:border-slate-850 text-slate-400 text-xs font-extrabold uppercase tracking-wider">
+                      <th className="pb-4 px-4">Plan Purchased</th>
+                      <th className="pb-4 px-4">Amount Paid</th>
+                      <th className="pb-4 px-4">Transaction ID</th>
+                      <th className="pb-4 px-4">Status</th>
+                      <th className="pb-4 px-4">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                    {billingInfo.payment_history?.map((p) => (
+                      <tr key={p.id} className="text-slate-800 dark:text-slate-200 text-sm">
+                        <td className="py-4 px-4 font-bold">{p.plan}</td>
+                        <td className="py-4 px-4 font-black">₹{p.amount}</td>
+                        <td className="py-4 px-4 text-xs text-slate-450 dark:text-slate-555 font-mono font-bold">
+                          TXN_DEMO_{p.id}{new Date(p.created_at).getTime().toString().slice(-4)}
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                            p.status === "success" 
+                              ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50" 
+                              : "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/50"
+                          }`}>
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-xs text-slate-450 font-semibold">
+                          {new Date(p.created_at).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                    {(!billingInfo.payment_history || billingInfo.payment_history.length === 0) && (
+                      <tr>
+                        <td colSpan={5} className="text-center py-6 text-slate-400 dark:text-slate-500 font-bold">
+                          No transaction invoice receipts generated yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
       </div>

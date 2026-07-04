@@ -11,7 +11,9 @@ from .auth import (
     create_access_token,
     verify_token
 )
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
+import random
+import time
 
 def check_and_create_due_notifications(db: Session, user_id: int):
     # Fetch user tasks that are not completed
@@ -124,6 +126,26 @@ except Exception:
 # 4. Users status updates
 try:
     db_mig.execute(text("ALTER TABLE users ADD COLUMN status VARCHAR DEFAULT 'active'"))
+    db_mig.commit()
+except Exception:
+    db_mig.rollback()
+
+# 5. Users subscription updates
+for col, col_type, default_val in [
+    ("subscription_plan", "VARCHAR", "'Free'"),
+    ("subscription_status", "VARCHAR", "'active'"),
+    ("billing_cycle", "VARCHAR", "'monthly'")
+]:
+    try:
+        db_mig.execute(text(f"ALTER TABLE users ADD COLUMN {col} {col_type} DEFAULT {default_val}"))
+        db_mig.commit()
+    except Exception:
+        db_mig.rollback()
+
+try:
+    is_postgres = "postgresql" in str(engine.url)
+    dt_type = "TIMESTAMP WITH TIME ZONE" if is_postgres else "DATETIME"
+    db_mig.execute(text(f"ALTER TABLE users ADD COLUMN renewal_date {dt_type}"))
     db_mig.commit()
 except Exception:
     db_mig.rollback()
@@ -271,6 +293,10 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
             "location": db_user.location,
             "bio": db_user.bio,
             "status": db_user.status or "active",
+            "subscription_plan": db_user.subscription_plan or "Free",
+            "subscription_status": db_user.subscription_status or "active",
+            "billing_cycle": db_user.billing_cycle or "monthly",
+            "renewal_date": db_user.renewal_date.isoformat() if db_user.renewal_date else None,
             "created_at": db_user.created_at.isoformat() if db_user.created_at else None,
             "last_login": db_user.last_login.isoformat() if db_user.last_login else None
         }
@@ -291,6 +317,10 @@ def get_me(current_user: User = Depends(get_current_user)):
         "location": current_user.location,
         "bio": current_user.bio,
         "status": current_user.status or "active",
+        "subscription_plan": current_user.subscription_plan or "Free",
+        "subscription_status": current_user.subscription_status or "active",
+        "billing_cycle": current_user.billing_cycle or "monthly",
+        "renewal_date": current_user.renewal_date.isoformat() if current_user.renewal_date else None,
         "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
         "last_login": current_user.last_login.isoformat() if current_user.last_login else None
     }
@@ -862,3 +892,200 @@ def get_feedback_list(db: Session = Depends(get_db), current_user: User = Depend
         }
         for f in feedbacks
     ]
+
+
+from .payment_service import get_payment_provider
+from .models import Payment
+
+# Plan pricing mapping in INR
+PLAN_PRICES = {
+    "Free": {"monthly": 0, "yearly": 0},
+    "Pro": {"monthly": 499, "yearly": 4999},
+    "Business": {"monthly": 999, "yearly": 9999},
+    "Enterprise": {"monthly": 2499, "yearly": 24999}
+}
+
+@app.get("/subscription/me")
+def get_subscription_me(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    payments = db.query(Payment).filter(Payment.user_id == current_user.id).order_by(Payment.id.desc()).all()
+    return {
+        "subscription_plan": current_user.subscription_plan or "Free",
+        "subscription_status": current_user.subscription_status or "active",
+        "billing_cycle": current_user.billing_cycle or "monthly",
+        "renewal_date": current_user.renewal_date.isoformat() if current_user.renewal_date else None,
+        "payment_history": [
+            {
+                "id": p.id,
+                "plan": p.plan,
+                "amount": p.amount,
+                "status": p.status,
+                "payment_method": p.payment_method,
+                "created_at": p.created_at.isoformat() if p.created_at else None
+            }
+            for p in payments
+        ]
+    }
+
+@app.post("/subscription/checkout")
+def subscription_checkout(payload: dict, current_user: User = Depends(get_current_user)):
+    plan = payload.get("plan", "Free")
+    billing_cycle = payload.get("billing_cycle", "monthly")
+    
+    if plan not in PLAN_PRICES:
+        raise HTTPException(status_code=400, detail="Invalid plan selected")
+        
+    price = PLAN_PRICES[plan][billing_cycle]
+    
+    # Instantiate payment provider
+    provider = get_payment_provider()
+    
+    # Create billing order
+    order = provider.create_order(amount=price * 100) # Price in paise for Razorpay
+    order["plan"] = plan
+    order["billing_cycle"] = billing_cycle
+    order["user_id"] = current_user.id
+    
+    return order
+
+@app.post("/subscription/verify")
+def subscription_verify(payload: dict, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    provider = get_payment_provider()
+    success = provider.verify_payment(payload)
+    
+    plan = payload.get("plan", "Free")
+    billing_cycle = payload.get("billing_cycle", "monthly")
+    amount = PLAN_PRICES.get(plan, {}).get(billing_cycle, 0)
+    
+    # Add new payment log
+    new_payment = Payment(
+        user_id=current_user.id,
+        plan=plan,
+        amount=amount,
+        status="success" if success else "failed",
+        payment_method="UPI",
+    )
+    db.add(new_payment)
+    db.commit()
+    
+    if success:
+        # Upgrade user subscription
+        db_user = db.query(User).filter(User.id == current_user.id).first()
+        db_user.subscription_plan = plan
+        db_user.subscription_status = "active"
+        db_user.billing_cycle = billing_cycle
+        
+        # Calculate renewal date
+        days = 30 if billing_cycle == "monthly" else 365
+        db_user.renewal_date = datetime.now() + timedelta(days=days)
+        db.commit()
+        return {
+            "success": True, 
+            "plan": plan, 
+            "message": "Subscription upgraded successfully",
+            "order_id": f"TXN_{random.randint(100000, 999999)}",
+            "invoice_number": f"INV-2026-{random.randint(1000, 9999)}",
+            "payment_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+    else:
+        return {"success": False, "message": "Payment verification failed"}
+
+@app.post("/subscription/cancel")
+def subscription_cancel(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    db_user = db.query(User).filter(User.id == current_user.id).first()
+    db_user.subscription_plan = "Free"
+    db_user.subscription_status = "active"
+    db_user.billing_cycle = "monthly"
+    db_user.renewal_date = None
+    db.commit()
+    return {"success": True, "message": "Subscription cancelled successfully"}
+
+@app.get("/admin/billing/dashboard")
+def get_billing_dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Forbidden")
+        
+    # Seed fake transactions if payments table is empty
+    payments_count = db.query(Payment).count()
+    if payments_count == 0:
+        methods = ["UPI (Google Pay)", "UPI (PhonePe)", "UPI (Paytm)", "UPI (BHIM)", "UPI (GPay)"]
+        plans = ["Pro", "Business", "Enterprise"]
+        cycles = ["monthly", "yearly"]
+        now = datetime.now()
+        
+        users = db.query(User).all()
+        if users:
+            for i in range(35):
+                u = random.choice(users)
+                plan = random.choice(plans)
+                cycle = random.choice(cycles)
+                amount = PLAN_PRICES[plan][cycle]
+                status = "success" if random.random() < 0.90 else "failed"
+                created = now - timedelta(days=random.randint(1, 30), hours=random.randint(0, 23))
+                
+                # Make sure database users get updated plan/cycle too so active_subs count works!
+                if status == "success" and (u.subscription_plan is None or u.subscription_plan == "Free"):
+                    u.subscription_plan = plan
+                    u.subscription_status = "active"
+                    u.billing_cycle = cycle
+                    days = 30 if cycle == "monthly" else 365
+                    u.renewal_date = created + timedelta(days=days)
+                
+                fake_payment = Payment(
+                    user_id=u.id,
+                    plan=plan,
+                    amount=amount,
+                    status=status,
+                    payment_method=random.choice(methods),
+                    created_at=created
+                )
+                db.add(fake_payment)
+            db.commit()
+            
+    # 1. Total revenue
+    successful_payments = db.query(Payment).filter(Payment.status == "success").all()
+    total_revenue = sum(p.amount for p in successful_payments)
+    
+    # 2. Active subscriptions count
+    active_subs = db.query(User).filter(User.subscription_plan != "Free", User.subscription_status == "active").count()
+    
+    # 3. Monthly Recurring Revenue (MRR)
+    mrr = 0
+    paying_users = db.query(User).filter(User.subscription_plan != "Free", User.subscription_plan.isnot(None), User.subscription_status == "active").all()
+    for u in paying_users:
+        plan_prices = PLAN_PRICES.get(u.subscription_plan, {"monthly": 0, "yearly": 0})
+        if u.billing_cycle == "monthly":
+            mrr += plan_prices["monthly"]
+        else:
+            mrr += plan_prices["yearly"] // 12
+            
+    # 4. Recent payments list
+    payments = db.query(Payment).order_by(Payment.id.desc()).limit(15).all()
+    recent_payments = []
+    for p in payments:
+        p_user = db.query(User).filter(User.id == p.user_id).first()
+        recent_payments.append({
+            "id": p.id,
+            "user_name": p_user.name if p_user else "Deleted User",
+            "user_email": p_user.email if p_user else "unknown",
+            "plan": p.plan,
+            "amount": p.amount,
+            "status": p.status,
+            "payment_method": p.payment_method,
+            "created_at": p.created_at.isoformat() if p.created_at else None
+        })
+        
+    # 5. Subscription analytics
+    plan_counts = {"Free": 0, "Pro": 0, "Business": 0, "Enterprise": 0}
+    all_users = db.query(User).all()
+    for u in all_users:
+        p = u.subscription_plan or "Free"
+        if p in plan_counts:
+            plan_counts[p] += 1
+            
+    return {
+        "total_revenue": total_revenue,
+        "active_subscriptions": active_subs,
+        "mrr": mrr,
+        "recent_payments": recent_payments,
+        "subscription_analytics": plan_counts
+    }

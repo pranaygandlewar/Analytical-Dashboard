@@ -31,6 +31,7 @@ export default function AIAssistant() {
     }
   ]);
   const [inputVal, setInputVal] = useState("");
+  const [queryCount, setQueryCount] = useState(0);
   
   // Data sets
   const [tasks, setTasks] = useState([]);
@@ -71,6 +72,23 @@ export default function AIAssistant() {
     e.preventDefault();
     if (!inputVal.trim()) return;
 
+    // Gating for Free plan users
+    const isFree = !currentUser?.subscription_plan || currentUser.subscription_plan === "Free";
+    if (isFree && queryCount >= 3) {
+      setMessages(prev => [
+        ...prev,
+        { sender: "user", text: inputVal.trim() },
+        { 
+          sender: "bot", 
+          text: "🔒 Premium Limit Reached: Free workspaces are limited to 3 AI queries per session. Upgrade to a Pro subscription to unlock unlimited workspace intelligence!",
+          isLimitBlock: true 
+        }
+      ]);
+      setInputVal("");
+      return;
+    }
+
+    setQueryCount(prev => prev + 1);
     const userText = inputVal;
     setInputVal("");
     setMessages(prev => [...prev, { sender: "user", text: userText }]);
@@ -261,6 +279,16 @@ export default function AIAssistant() {
                     : "bg-slate-100 dark:bg-slate-800 dark:text-slate-200 text-slate-800 rounded-tl-none border dark:border-slate-800"
                 }`}>
                   <p className="whitespace-pre-line">{msg.text}</p>
+                  {msg.isLimitBlock && (
+                    <div className="mt-3 pt-2.5 border-t border-slate-200/50 dark:border-slate-700/50 flex flex-col items-center">
+                      <a 
+                        href="/settings?tab=billing"
+                        className="w-full text-center py-2 px-3.5 bg-gradient-to-r from-indigo-600 to-purple-650 hover:from-indigo-700 hover:to-purple-750 text-white rounded-xl font-bold shadow-md shadow-indigo-500/10 transition-all active:scale-[0.98]"
+                      >
+                        Upgrade to Pro
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
