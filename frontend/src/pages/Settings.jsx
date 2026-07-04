@@ -454,7 +454,7 @@ function Settings({ darkMode, setDarkMode }) {
                       document.documentElement.classList.add("notransition");
                       const newTheme = !darkMode;
                       setDarkMode(newTheme);
-                      localStorage.setItem("theme", newTheme ? "dark" : "light");
+                      sessionStorage.setItem("theme", newTheme ? "dark" : "light");
                       if (newTheme) {
                         document.documentElement.classList.add("dark");
                       } else {

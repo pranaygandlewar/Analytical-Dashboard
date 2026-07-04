@@ -165,13 +165,30 @@ function AnimatedRoutes({ darkMode, setDarkMode }) {
 function App() {
   const checkAuth = useAuthStore((state) => state.checkAuth);
 
-  const [darkMode, setDarkMode] = useState(
-    localStorage.getItem("theme") === "dark"
-  );
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = sessionStorage.getItem("theme");
+    if (saved === "dark") return true;
+    if (saved === "light") return false;
+    return false; // Default theme should be light
+  });
 
   useEffect(() => {
     checkAuth();
+    const saved = sessionStorage.getItem("theme");
+    if (!saved) {
+      sessionStorage.setItem("theme", "light");
+    }
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setDarkMode(false);
+      sessionStorage.removeItem("theme");
+      document.documentElement.classList.remove("dark");
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (darkMode) {

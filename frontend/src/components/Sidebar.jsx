@@ -96,11 +96,11 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen, c
         isMobileOpen ? "translate-x-0" : "-translate-x-full"
       } lg:translate-x-0 fixed lg:static left-0 top-0 bottom-0 z-50 ${
         isCollapsed ? "lg:w-24 lg:px-4" : "lg:w-80 lg:px-7"
-      } w-80 bg-[#0B1235] dark:bg-black text-white min-h-full px-7 py-8 flex flex-col justify-between transition-all duration-300 border-r dark:border-slate-900`}
+      } w-80 bg-[#0B1235] dark:bg-black text-white h-full px-7 py-8 flex flex-col justify-between overflow-y-auto transition-all duration-300 border-r dark:border-slate-900`}
     >
       <div>
         {/* Sidebar Header (Logo & Collapse toggle) */}
-        <div className="mb-14 flex items-center justify-between">
+        <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3 overflow-hidden">
             <img src={companyLogo || "/logo.png"} alt="Logo" className="w-12 h-12 rounded-2xl object-cover shadow-lg shrink-0" />
 
@@ -126,7 +126,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen, c
         </div>
 
         {/* Menu list */}
-        <div className="space-y-4">
+        <div className="space-y-2.5">
           {menu.map((item, i) => {
             const Icon = item.icon;
 
@@ -147,7 +147,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen, c
                     )}
 
                     <div
-                      className={`relative z-10 flex items-center justify-between px-5 py-5 rounded-2xl transition-all duration-300 ${
+                      className={`relative z-10 flex items-center justify-between px-5 py-3.5 rounded-2xl transition-all duration-300 ${
                         isActive
                           ? "text-white"
                           : "text-slate-300 hover:text-white hover:bg-white/5"
