@@ -1,0 +1,128 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect, useState, lazy, Suspense } from "react";
+import useAuthStore from "./store/authStore";
+
+import PageLoader from "./components/PageLoader";
+import ErrorBoundary from "./components/ErrorBoundary";
+import ProtectedRoute from "./components/ProtectedRoute";
+
+const Notifications = lazy(() => import("./pages/Notifications"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Login = lazy(() => import("./pages/Login"));
+const Signup = lazy(() => import("./pages/Signup"));
+const Team = lazy(() => import("./pages/Team"));
+const Projects = lazy(() => import("./pages/Projects"));
+const Settings = lazy(() => import("./pages/Settings"));
+const AdminPanel = lazy(() => import("./pages/AdminPanel"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const MyTasks = lazy(() => import("./pages/myTasks"));
+
+function App() {
+  const checkAuth = useAuthStore((state) => state.checkAuth);
+
+  const [darkMode, setDarkMode] = useState(
+    localStorage.getItem("theme") === "dark"
+  );
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [darkMode]);
+
+  return (
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/tasks"
+              element={
+                <ProtectedRoute allowedRoles={["member"]}>
+                  <MyTasks />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/team"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <Team />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/projects"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <Projects />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/notifications"
+              element={
+                <ProtectedRoute>
+                  <Notifications />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings
+                    darkMode={darkMode}
+                    setDarkMode={setDarkMode}
+                  />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AdminPanel />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/analytics"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <Analytics />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </ErrorBoundary>
+  );
+}
+
+export default App;
