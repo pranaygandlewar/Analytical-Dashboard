@@ -6,15 +6,18 @@ import toast from "react-hot-toast";
 import useAuthStore from "../store/authStore";
 import TaskDetailsBlock from "../components/TaskDetailsBlock";
 import CustomSelect from "../components/CustomSelect";
+import EmptyState from "../components/EmptyState";
 import {
   CheckCircle2,
   Clock3,
   AlertCircle,
   CheckCheck,
+  MessageSquare
 } from "lucide-react";
 import {
   SkeletonTaskCard,
 } from "../components/SkeletonLoader";
+import TaskCollaborationDrawer from "../components/TaskCollaborationDrawer";
 
 function getStatusBadge(status) {
   if (status === "completed") {
@@ -62,6 +65,7 @@ export default function MyTasks() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingTaskId, setUpdatingTaskId] = useState(null);
+  const [selectedTask, setSelectedTask] = useState(null);
 
   // Filter & Sort State
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -196,7 +200,8 @@ export default function MyTasks() {
   const processedTasks = getFilteredAndSortedTasks();
 
   return (
-    <AppLayout>
+    <>
+      <AppLayout>
       <div className="mt-8 mb-8">
         <h1 className="text-4xl font-bold text-slate-900 dark:text-white">
           My Tasks
@@ -271,15 +276,29 @@ export default function MyTasks() {
       {loading ? (
         <MyTasksSkeleton />
       ) : processedTasks.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 rounded-[32px] p-10 text-center shadow-sm border border-slate-100 dark:border-slate-800">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-            No Tasks Found
-          </h2>
-
-          <p className="text-slate-500 dark:text-slate-400 mt-3">
-            Try adjusting your filters or wait for new assignments
-          </p>
-        </div>
+        <EmptyState
+          type="tasks"
+          title="No Tasks Assigned"
+          description={
+            statusFilter !== "all" || priorityFilter !== "all" || dueDateFilter !== "all"
+              ? "No assignments matching selected search filter matrix."
+              : "You don't have any tasks in your workspace task list yet."
+          }
+          actionText={
+            statusFilter !== "all" || priorityFilter !== "all" || dueDateFilter !== "all"
+              ? "Reset Filters"
+              : "View Help Center"
+          }
+          onAction={() => {
+            if (statusFilter !== "all" || priorityFilter !== "all" || dueDateFilter !== "all") {
+              setStatusFilter("all");
+              setPriorityFilter("all");
+              setDueDateFilter("all");
+            } else {
+              window.location.href = "/help";
+            }
+          }}
+        />
       ) : (
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
           {processedTasks.map((task) => (
@@ -304,7 +323,7 @@ export default function MyTasks() {
 
               <TaskDetailsBlock task={task} />
 
-              <div className="mt-8">
+              <div className="mt-8 flex justify-between items-center gap-4">
                 {task.status !== "completed" ? (
                   <button
                     onClick={() =>
@@ -313,7 +332,7 @@ export default function MyTasks() {
                     disabled={
                       updatingTaskId === task.id
                     }
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 transition-all duration-300"
+                    className="flex-1 bg-indigo-650 hover:bg-indigo-755 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all duration-300"
                   >
                     <CheckCheck size={18} />
 
@@ -322,15 +341,32 @@ export default function MyTasks() {
                       : "Mark Completed"}
                   </button>
                 ) : (
-                  <div className="w-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 py-4 rounded-2xl text-center font-semibold">
-                    Task Completed
+                  <div className="flex-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 py-4 rounded-2xl text-center font-bold">
+                    Completed
                   </div>
                 )}
+
+                <button
+                  onClick={() => setSelectedTask(task)}
+                  className="p-4 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 border dark:border-slate-700 rounded-2xl text-slate-550 dark:text-slate-450 hover:text-indigo-650 transition flex items-center justify-center shrink-0"
+                  title="Task discussions"
+                >
+                  <MessageSquare size={16} />
+                </button>
               </div>
             </div>
           ))}
         </div>
       )}
     </AppLayout>
+
+      {selectedTask && (
+        <TaskCollaborationDrawer
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+          onUpdate={fetchTasks}
+        />
+      )}
+    </>
   );
 }

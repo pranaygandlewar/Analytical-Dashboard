@@ -58,10 +58,6 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen, c
     return () => clearInterval(interval);
   }, [user]);
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
 
   let menu = [];
 
@@ -92,6 +88,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen, c
 
   return (
     <div 
+      id="sidebar-tour"
       className={`${
         isMobileOpen ? "translate-x-0" : "-translate-x-full"
       } lg:translate-x-0 fixed lg:static left-0 top-0 bottom-0 z-50 ${
@@ -131,7 +128,13 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen, c
             const Icon = item.icon;
 
             return (
-              <NavLink key={i} to={item.path} onClick={() => setIsMobileOpen(false)}>
+              <NavLink 
+                key={i} 
+                to={item.path} 
+                id={`${item.label.toLowerCase().replace(" ", "-")}-tour`}
+                className="block"
+                onClick={() => setIsMobileOpen(false)}
+              >
                 {({ isActive }) => (
                   <div className="relative">
                     {isActive && (
@@ -180,7 +183,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen, c
         </div>
       </div>
 
-      {/* User settings & Logout */}
+      {/* User settings */}
       <div className="space-y-4">
         <div className={`bg-white/5 rounded-3xl p-4 border border-white/10 flex items-center gap-3 ${isCollapsed ? "justify-center" : ""}`}>
           <Avatar user={user} size="xs" className="shrink-0" />
@@ -203,14 +206,6 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen, c
             </motion.div>
           )}
         </div>
-
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-all duration-300"
-        >
-          <LogOut size={20} className="shrink-0" />
-          {!isCollapsed && <span>Logout</span>}
-        </button>
       </div>
     </div>
   );

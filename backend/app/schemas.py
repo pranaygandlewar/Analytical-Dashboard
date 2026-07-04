@@ -47,3 +47,23 @@ class ProfileUpdate(BaseModel):
 class PasswordUpdate(BaseModel):
     current_password: str
     new_password: str
+
+
+class CommentCreate(BaseModel):
+    content: str
+    parent_id: Optional[int] = None
+
+
+class CommentUpdate(BaseModel):
+    content: str
+
+
+class CommentReact(BaseModel):
+    emoji: str
+
+
+class AttachmentCreate(BaseModel):
+    filename: str
+    file_size: int
+    file_type: str
+    file_data: str # Base64 encoded

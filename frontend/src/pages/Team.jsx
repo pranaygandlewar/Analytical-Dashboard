@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { Search, Plus, Trash2, X, Users, AlertTriangle } from "lucide-react";
 import { SkeletonTaskCard } from "../components/SkeletonLoader";
 import Avatar from "../components/Avatar";
+import EmptyState from "../components/EmptyState";
 
 function TeamCard({ member, onDelete }) {
   return (
@@ -171,10 +172,24 @@ export default function Team() {
             </div>
 
             {filteredMembers.length === 0 ? (
-              <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm p-12 text-center mt-8">
-                <Users size={50} className="mx-auto text-slate-300 dark:text-slate-600" />
-
-                <h2 className="text-2xl font-bold mt-5 dark:text-white">No Members Found</h2>
+              <div className="mt-8">
+                <EmptyState
+                  type="team"
+                  title="No Members Found"
+                  description={
+                    search
+                      ? `No workspace members matched "${search}"`
+                      : "No team members have been invited to this workspace directory."
+                  }
+                  actionText={search ? "Clear Search" : "Add Team Member"}
+                  onAction={() => {
+                    if (search) {
+                      setSearch("");
+                    } else {
+                      setShowModal(true);
+                    }
+                  }}
+                />
               </div>
             ) : (
               <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8 mt-8">

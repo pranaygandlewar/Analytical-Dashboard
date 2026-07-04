@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import AppLayout from "../components/AppLayout";
 import api from "../services/api";
 import toast from "react-hot-toast";
-import { FolderKanban, Plus, X } from "lucide-react";
+import { FolderKanban, Plus, X, MessageSquare } from "lucide-react";
 import { useDraggable, useDroppable, DndContext, closestCenter } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import TaskDetailsBlock from "../components/TaskDetailsBlock";
@@ -11,6 +11,8 @@ import CustomDatePicker from "../components/CustomDatePicker";
 import {
   SkeletonTaskCard,
 } from "../components/SkeletonLoader";
+import EmptyState from "../components/EmptyState";
+import TaskCollaborationDrawer from "../components/TaskCollaborationDrawer";
 
 function BoardSkeleton() {
   return (
@@ -31,7 +33,7 @@ function BoardSkeleton() {
   );
 }
 
-function TaskCard({ task, members }) {
+function TaskCard({ task, members, onOpenDetails }) {
   const member = members.find(
     (m) => m.id === task.assigned_to
   );
@@ -68,9 +70,22 @@ function TaskCard({ task, members }) {
       <TaskDetailsBlock task={task} />
 
       <div className="mt-5 flex justify-between items-center">
-        <span className="text-sm text-slate-500 dark:text-slate-400">
-          {member?.name || "Unknown"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-500 dark:text-slate-400">
+            {member?.name || "Unknown"}
+          </span>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onOpenDetails(task);
+            }}
+            className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-indigo-650 transition"
+            title="Task discussions"
+          >
+            <MessageSquare size={13} />
+          </button>
+        </div>
 
         <span className="bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 px-3 py-1 rounded-full text-xs font-semibold">
           {task.status}
@@ -85,6 +100,7 @@ function Column({
   title,
   tasks,
   members,
+  onOpenDetails,
 }) {
   const { setNodeRef } = useDroppable({
     id,
@@ -110,6 +126,7 @@ function Column({
           key={task.id}
           task={task}
           members={members}
+          onOpenDetails={onOpenDetails}
         />
       ))}
     </div>
@@ -121,6 +138,7 @@ function Projects() {
   const [members, setMembers] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedTask, setSelectedTask] = useState(null);
 
   const [newTask, setNewTask] = useState({
     title: "",
@@ -280,6 +298,16 @@ function Projects() {
 
         {loading ? (
           <BoardSkeleton />
+        ) : tasks.length === 0 ? (
+          <div className="mt-8">
+            <EmptyState
+              type="projects"
+              title="No Workspace Projects Setup"
+              description="Get started by creating your first task on the collaborative kanban board!"
+              actionText="Create First Task"
+              onAction={() => setShowModal(true)}
+            />
+          </div>
         ) : (
           <DndContext
             collisionDetection={
@@ -293,6 +321,7 @@ function Projects() {
                 title="To Do"
                 tasks={groupedTasks.todo}
                 members={members}
+                onOpenDetails={setSelectedTask}
               />
 
               <Column
@@ -300,6 +329,7 @@ function Projects() {
                 title="In Progress"
                 tasks={groupedTasks.progress}
                 members={members}
+                onOpenDetails={setSelectedTask}
               />
 
               <Column
@@ -307,11 +337,20 @@ function Projects() {
                 title="Done"
                 tasks={groupedTasks.done}
                 members={members}
+                onOpenDetails={setSelectedTask}
               />
             </div>
           </DndContext>
         )}
       </AppLayout>
+
+      {selectedTask && (
+        <TaskCollaborationDrawer
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+          onUpdate={fetchData}
+        />
+      )}
 
       {showModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">

@@ -186,6 +186,7 @@ export default function AIAssistant() {
             setIsOpen(prev => !prev);
             setIsMinimized(false);
           }}
+          id="ai-assistant-tour"
           className="h-14 w-14 rounded-full bg-indigo-600 text-white shadow-2xl hover:bg-indigo-700 flex items-center justify-center transition-all duration-300 transform hover:scale-105 active:scale-95"
         >
           {isOpen ? <X size={22} /> : <MessageSquare size={22} />}

@@ -12,6 +12,13 @@ import {
   SkeletonCard,
   SkeletonWideCard,
 } from "../components/SkeletonLoader";
+import {
+  WelcomeModal,
+  ProductTour,
+  SetupWizard,
+  AchievementsPanel,
+  GettingStartedChecklist
+} from "../components/OnboardingSystem";
 
 function DashboardSkeleton({ role }) {
   return (
@@ -51,7 +58,7 @@ function DashboardSkeleton({ role }) {
   );
 }
 
-function AdminView({ tasks, members }) {
+function AdminView({ tasks, members, plan, onStartWizard }) {
   const completed = tasks.filter(
     (task) => task.status === "completed"
   ).length;
@@ -108,54 +115,64 @@ function AdminView({ tasks, members }) {
     }
   }
 
-  return (
-    <>
-      <div className="grid grid-cols-5 gap-5 mt-8">
-        <StatCard
-          title="Total Task"
-          value={tasks.length}
-        />
-        <StatCard
-          title="Completed"
-          value={completed}
-        />
-        <StatCard
-          title="Pending"
-          value={pending}
-          positive={false}
-          growth="-4.2%"
-        />
-        <StatCard
-          title="Team Members"
-          value={members.length}
-        />
-        <StatCard
-          title="Completion Rate"
-          value={completionRate}
-        />
-      </div>
+  const isNew = tasks.length === 0;
 
-      <div className="grid grid-cols-4 gap-5 mt-5">
-        <StatCard
-          title="Overdue Tasks"
-          value={overdueCount}
-          positive={overdueCount === 0}
-        />
-        <StatCard
-          title="Due Today"
-          value={dueTodayCount}
-          positive={dueTodayCount === 0}
-        />
-        <StatCard
-          title="High Priority"
-          value={highPriorityCount}
-          positive={false}
-        />
-        <StatCard
-          title="Avg Completion"
-          value={avgCompletionTime}
-        />
-      </div>
+  return (
+    <div id="dashboard-container" className="space-y-6">
+      {isNew ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8 animate-fadeIn">
+          <div className="lg:col-span-2">
+            <GettingStartedChecklist tasks={tasks} members={members} onStartWizard={onStartWizard} />
+          </div>
+          <div>
+            <AchievementsPanel tasks={tasks} members={members} plan={plan} />
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 mt-8">
+            <StatCard
+              title="Total Task"
+              value={tasks.length}
+            />
+            <StatCard
+              title="Completed"
+              value={completed}
+            />
+            <StatCard
+              title="Pending"
+              value={pending}
+              positive={false}
+              growth="-4.2%"
+            />
+            <StatCard
+              title="Team Members"
+              value={members.length}
+            />
+            <StatCard
+              title="Completion Rate"
+              value={completionRate}
+            />
+            <StatCard
+              title="Overdue Tasks"
+              value={overdueCount}
+              positive={overdueCount === 0}
+            />
+            <StatCard
+              title="Due Today"
+              value={dueTodayCount}
+              positive={dueTodayCount === 0}
+            />
+            <StatCard
+              title="High Priority"
+              value={highPriorityCount}
+              positive={false}
+            />
+            <StatCard
+              title="Avg Completion"
+              value={avgCompletionTime}
+            />
+          </div>
 
       <div className="grid grid-cols-2 gap-6 mt-8">
         <RevenueChart tasks={tasks} />
@@ -170,7 +187,9 @@ function AdminView({ tasks, members }) {
       <div className="mt-8">
         <AIInsights tasks={tasks} members={members} />
       </div>
-    </>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -233,7 +252,7 @@ function MemberView({ tasks, members }) {
 
   return (
     <>
-      <div className="grid grid-cols-4 gap-5 mt-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 mt-8">
         <StatCard
           title="My Tasks"
           value={tasks.length}
@@ -252,9 +271,6 @@ function MemberView({ tasks, members }) {
           title="Performance"
           value={performance}
         />
-      </div>
-
-      <div className="grid grid-cols-4 gap-5 mt-5">
         <StatCard
           title="Overdue Tasks"
           value={overdueCount}
@@ -297,7 +313,12 @@ function Dashboard() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  // Onboarding States
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [tourActive, setTourActive] = useState(false);
+  const [wizardActive, setWizardActive] = useState(false);
+
+  const fetchAll = () => {
     Promise.all([
       api.get("/tasks"),
       api.get("/users"),
@@ -318,10 +339,62 @@ function Dashboard() {
           setLoading(false);
         }, 500);
       });
-  }, []);
+  };
+
+  useEffect(() => {
+    fetchAll();
+    if (user?.email) {
+      const completed = localStorage.getItem(`onboarding_completed_${user.email}`);
+      if (completed !== "true") {
+        setShowWelcome(true);
+      }
+    }
+  }, [user]);
 
   return (
     <AppLayout>
+      {showWelcome && (
+        <WelcomeModal
+          onStartTour={() => { setShowWelcome(false); setTourActive(true); }}
+          onStartWizard={() => { setShowWelcome(false); setWizardActive(true); }}
+          onSkip={() => { 
+            setShowWelcome(false); 
+            if (user?.email) {
+              localStorage.setItem(`onboarding_completed_${user.email}`, "true");
+            }
+          }}
+        />
+      )}
+
+      <ProductTour
+        active={tourActive}
+        onFinish={() => { 
+          setTourActive(false); 
+          if (user?.email) {
+            localStorage.setItem(`onboarding_completed_${user.email}`, "true");
+          }
+          toast.success("Guided walkthrough completed!"); 
+        }}
+        onSkipTour={() => { 
+          setTourActive(false); 
+          if (user?.email) {
+            localStorage.setItem(`onboarding_completed_${user.email}`, "true");
+          }
+        }}
+      />
+
+      <SetupWizard
+        active={wizardActive}
+        onFinish={() => { 
+          setWizardActive(false); 
+          if (user?.email) {
+            localStorage.setItem(`onboarding_completed_${user.email}`, "true");
+          }
+          fetchAll(); 
+        }}
+        onCancel={() => setWizardActive(false)}
+      />
+
       {loading ? (
         <DashboardSkeleton
           role={user?.role}
@@ -332,6 +405,8 @@ function Dashboard() {
             <AdminView
               tasks={tasks}
               members={members}
+              plan={user?.subscription_plan || "Free"}
+              onStartWizard={() => setWizardActive(true)}
             />
           )}
 

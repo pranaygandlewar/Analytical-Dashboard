@@ -81,3 +81,47 @@ class Payment(Base):
     status = Column(String)  # "success", "failed", "pending"
     payment_method = Column(String)  # "UPI", "Card"
     created_at = Column(DateTime(timezone=True), default=func.now())
+
+
+class Comment(Base):
+    __tablename__ = "task_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(String)
+    parent_id = Column(Integer, nullable=True)
+    reactions = Column(String, default="{}") # JSON-serialized emoji reactions
+    is_edited = Column(String, default="false")
+    created_at = Column(DateTime(timezone=True), default=func.now())
+
+
+class Attachment(Base):
+    __tablename__ = "task_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"))
+    filename = Column(String)
+    file_size = Column(Integer) # in bytes
+    file_type = Column(String)
+    file_data = Column(String) # Base64 encoded file contents
+    created_at = Column(DateTime(timezone=True), default=func.now())
+
+
+class Watcher(Base):
+    __tablename__ = "task_watchers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+
+class TimelineEvent(Base):
+    __tablename__ = "task_timeline_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    event_type = Column(String) # "created", "assigned", "priority", "due_date", "status", "comment", "attachment", "completed"
+    details = Column(String)
+    created_at = Column(DateTime(timezone=True), default=func.now())

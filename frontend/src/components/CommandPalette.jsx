@@ -87,7 +87,7 @@ export default function CommandPalette() {
     }
   }, []);
 
-  // Toggle Command Palette on Ctrl/Cmd + K
+  // Toggle Command Palette on Ctrl/Cmd + K & custom event
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -95,8 +95,15 @@ export default function CommandPalette() {
         setIsOpen((prev) => !prev);
       }
     };
+    const handleOpenEvent = () => {
+      setIsOpen(true);
+    };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("open-command-palette", handleOpenEvent);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("open-command-palette", handleOpenEvent);
+    };
   }, []);
 
   // Reset state and fetch data on open

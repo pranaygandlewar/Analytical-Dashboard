@@ -19,6 +19,7 @@ import {
 import {
   SkeletonWideCard,
 } from "../components/SkeletonLoader";
+import EmptyState from "../components/EmptyState";
 
 function NotificationsSkeleton() {
   return (
@@ -241,19 +242,14 @@ export default function Notifications() {
       {loading ? (
         <NotificationsSkeleton />
       ) : notifications.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm p-12 text-center mt-8">
-          <Bell
-            size={50}
-            className="mx-auto text-slate-300 dark:text-slate-600"
+        <div className="mt-8">
+          <EmptyState
+            type="notifications"
+            title="You're All Caught Up"
+            description="No notifications or alerts are currently queued in your workspace log."
+            actionText="Go to Dashboard"
+            onAction={() => window.location.href = "/dashboard"}
           />
-
-          <h2 className="text-2xl font-bold mt-5 text-slate-900 dark:text-white">
-            No Notifications
-          </h2>
-
-          <p className="text-slate-500 dark:text-slate-400 mt-3">
-            New alerts will appear here
-          </p>
         </div>
       ) : (
         <div className="space-y-6 mt-8">

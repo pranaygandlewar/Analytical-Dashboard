@@ -13,6 +13,7 @@ import {
   FileText
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { ProductTour } from "../components/OnboardingSystem";
 
 export default function HelpCenter() {
   const [activeSubTab, setActiveSubTab] = useState("docs"); // docs, shortcuts, tour, changelog
@@ -76,6 +77,7 @@ export default function HelpCenter() {
           { id: "docs", label: "Documentation", icon: BookOpen },
           { id: "shortcuts", label: "Keyboard Shortcuts", icon: Keyboard },
           { id: "tour", label: "Onboarding Tour", icon: Compass },
+          { id: "faq", label: "FAQs & Tutorials", icon: Play },
           { id: "changelog", label: "Release Logs", icon: Info }
         ].map((tab) => {
           const Icon = tab.icon;
@@ -145,21 +147,74 @@ export default function HelpCenter() {
           )}
 
           {activeSubTab === "tour" && (
-            <div className="space-y-6 flex flex-col items-center justify-center py-10 text-center">
-              <Compass className="text-indigo-650 animate-spin duration-3000" size={48} />
+            <div className="space-y-6 flex flex-col items-center justify-center py-10 text-center animate-fadeIn">
+              <Compass className="text-indigo-600 animate-spin duration-3000" size={48} />
               <div className="space-y-2">
-                <h3 className="font-bold text-lg dark:text-white">Workspace Onboarding Tour</h3>
+                <h3 className="font-bold text-lg dark:text-white">Workspace Guided Tour</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold max-w-sm leading-relaxed">
-                  Start an interactive step wizard walking through core dashboard widgets, collapsible layouts, and AI panels.
+                  Restart the interactiveguided product tour highlighting core layout headers, Kanban board, AI drawers, and settings.
                 </p>
               </div>
               <button
-                onClick={() => { setIsTourActive(true); setTourStep(0); }}
-                className="flex items-center gap-1.5 px-6 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-bold hover:bg-indigo-750"
+                onClick={() => setIsTourActive(true)}
+                className="flex items-center gap-1.5 px-6 py-3.5 bg-indigo-600 text-white rounded-2xl text-xs font-bold hover:bg-indigo-700 shadow-md shadow-indigo-600/10 transition active:scale-[0.98]"
               >
-                <Play size={14} />
-                Start Workspace Tour
+                <Play size={14} fill="white" />
+                Start Tour Walkthrough
               </button>
+            </div>
+          )}
+
+          {activeSubTab === "faq" && (
+            <div className="space-y-6 animate-fadeIn">
+              <h3 className="font-bold text-lg dark:text-white flex items-center gap-2">
+                <Play className="text-indigo-650" size={18} />
+                FAQs & Video Tutorials
+              </h3>
+              
+              {/* Tutorials Grid (Mockups) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { title: "Quickstart Dashboard Navigation", duration: "2:45 min", desc: "A brief tour explaining stats cards, activity feeds, and NLP assistant features." },
+                  { title: "Roles and Permissions Configurations", duration: "4:15 min", desc: "How admins can manage security matrices and invite workspace team members." }
+                ].map((vid, idx) => (
+                  <div key={idx} className="p-4 bg-slate-50 dark:bg-slate-800/20 border dark:border-slate-850 rounded-2xl flex flex-col justify-between relative overflow-hidden">
+                    <div className="h-28 bg-slate-200 dark:bg-slate-800 rounded-xl mb-3 flex items-center justify-center relative group cursor-pointer border dark:border-slate-700">
+                      <div className="h-10 w-10 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-105 transition">
+                        <Play size={14} fill="white" className="ml-0.5" />
+                      </div>
+                      <span className="absolute bottom-2 right-2 bg-black/60 text-white text-[9px] font-bold px-2 py-0.5 rounded">
+                        {vid.duration}
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xs dark:text-white">{vid.title}</h4>
+                      <p className="text-slate-450 dark:text-slate-500 text-[10px] font-semibold mt-1">{vid.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* FAQs Accordion */}
+              <div className="border-t dark:border-slate-800 pt-6 space-y-4">
+                <h4 className="font-bold text-sm dark:text-white">Frequently Asked Questions</h4>
+                <div className="space-y-2">
+                  {[
+                    { q: "How do I upgrade my plan?", a: "Navigate to Settings -> Billing & Subscription tab, choose your billing cycle, and click Upgrade Plan. You can complete the sandbox payment using any demo UPI app." },
+                    { q: "How does the AI Productivity Assistant work?", a: "Click the floating bot button in the bottom-right corner. It supports plain language commands like 'create a task for next Monday' or workspace statistics checkins." }
+                  ].map((faq, idx) => (
+                    <details key={idx} className="bg-slate-50 dark:bg-slate-800/10 border dark:border-slate-850 p-4 rounded-2xl group cursor-pointer">
+                      <summary className="font-bold text-xs text-slate-800 dark:text-slate-200 flex justify-between items-center outline-none list-none">
+                        <span>{faq.q}</span>
+                        <ChevronRight className="transform group-open:rotate-90 transition-transform" size={14} />
+                      </summary>
+                      <p className="text-slate-500 dark:text-slate-400 text-xs font-semibold mt-2.5 leading-relaxed">
+                        {faq.a}
+                      </p>
+                    </details>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -232,46 +287,11 @@ export default function HelpCenter() {
       </div>
 
       {/* Onboarding Tour Overlay Wizard */}
-      {isTourActive && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-[32px] w-full max-w-sm p-7 space-y-6 shadow-2xl relative">
-            
-            <button 
-              onClick={() => setIsTourActive(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-650"
-            >
-              <X size={18} />
-            </button>
-
-            <div className="space-y-4 font-semibold text-center">
-              <span className="text-[10px] font-bold text-indigo-650 dark:text-indigo-400 uppercase tracking-widest">
-                Tour Step {tourStep + 1} of {tourSteps.length}
-              </span>
-              <h3 className="text-lg font-bold dark:text-white">{tourSteps[tourStep].title}</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-                {tourSteps[tourStep].text}
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between pt-4 border-t dark:border-slate-800">
-              <button
-                disabled={tourStep === 0}
-                onClick={() => setTourStep(prev => Math.max(0, prev - 1))}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white rounded-xl text-xs font-bold disabled:opacity-40"
-              >
-                Back
-              </button>
-              <button
-                onClick={handleNextTourStep}
-                className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700"
-              >
-                {tourStep === tourSteps.length - 1 ? "Complete" : "Next"}
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
+      <ProductTour
+        active={isTourActive}
+        onFinish={() => { setIsTourActive(false); toast.success("Walkthrough completed!"); }}
+        onSkipTour={() => setIsTourActive(false)}
+      />
 
     </AppLayout>
   );

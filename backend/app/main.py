@@ -2,8 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from .database import engine, SessionLocal, Base
-from .models import User, Task, Notification, WorkspaceSetting, Feedback
-from .schemas import UserCreate, UserLogin, TaskCreate, TaskUpdate, ProfileUpdate, PasswordUpdate
+from .models import User, Task, Notification, WorkspaceSetting, Feedback, Comment, Attachment, Watcher, TimelineEvent
+from .schemas import UserCreate, UserLogin, TaskCreate, TaskUpdate, ProfileUpdate, PasswordUpdate, CommentCreate, CommentUpdate, CommentReact, AttachmentCreate
 from fastapi.middleware.cors import CORSMiddleware
 from .auth import (
     hash_password,
@@ -469,6 +469,20 @@ def create_task(
     db.add(new_task)
     db.commit()
 
+    # Timeline event
+    db.add(TimelineEvent(
+        task_id=new_task.id,
+        user_id=current_user.id,
+        event_type="created",
+        details="Task was created"
+    ))
+    db.add(TimelineEvent(
+        task_id=new_task.id,
+        user_id=current_user.id,
+        event_type="assigned",
+        details=f"Assigned task to {assigned_user.name}"
+    ))
+
     notification = Notification(
         message=f"New task assigned: {task.title}",
         user_id=task.assigned_to,
@@ -529,11 +543,13 @@ def update_task(
                 detail="Members can only update task status"
             )
 
-    if task_update.title is not None:
+    if task_update.title is not None and task_update.title != task.title:
         task.title = task_update.title
-    if task_update.description is not None:
+        db.add(TimelineEvent(task_id=task.id, user_id=current_user.id, event_type="status", details=f"Changed title to '{task_update.title}'"))
+    if task_update.description is not None and task_update.description != task.description:
         task.description = task_update.description
-    if task_update.assigned_to is not None:
+        db.add(TimelineEvent(task_id=task.id, user_id=current_user.id, event_type="status", details="Updated task description"))
+    if task_update.assigned_to is not None and task_update.assigned_to != task.assigned_to:
         assigned_user = db.query(User).filter(User.id == task_update.assigned_to).first()
         if not assigned_user:
             raise HTTPException(
@@ -541,20 +557,36 @@ def update_task(
                 detail="Assigned user not found"
             )
         task.assigned_to = task_update.assigned_to
-    if task_update.priority is not None:
+        db.add(TimelineEvent(task_id=task.id, user_id=current_user.id, event_type="assigned", details=f"Assigned task to {assigned_user.name}"))
+    if task_update.priority is not None and task_update.priority != task.priority:
         task.priority = task_update.priority
-    if task_update.due_date is not None:
+        db.add(TimelineEvent(task_id=task.id, user_id=current_user.id, event_type="priority", details=f"Changed priority to {task_update.priority}"))
+    if task_update.due_date is not None and task_update.due_date != task.due_date:
         task.due_date = task_update.due_date
-    if task_update.estimated_duration is not None:
+        db.add(TimelineEvent(task_id=task.id, user_id=current_user.id, event_type="due_date", details=f"Changed due date to {task_update.due_date}"))
+    if task_update.estimated_duration is not None and task_update.estimated_duration != task.estimated_duration:
         task.estimated_duration = task_update.estimated_duration
-    if task_update.status is not None:
+    if task_update.status is not None and task_update.status != task.status:
         task.status = task_update.status
+        db.add(TimelineEvent(task_id=task.id, user_id=current_user.id, event_type="status", details=f"Changed status to '{task_update.status}'"))
         if task_update.status == "completed":
             task.completed_at = datetime.utcnow()
+            db.add(TimelineEvent(task_id=task.id, user_id=current_user.id, event_type="completed", details="Marked task as completed"))
         else:
             task.completed_at = None
 
     db.commit()
+
+    # Notify watchers of updates
+    watchers = db.query(Watcher).filter(Watcher.task_id == task.id).all()
+    for w in watchers:
+        if w.user_id != current_user.id:
+            db.add(Notification(
+                message=f"Watched task '{task.title}' updated by {current_user.name}",
+                user_id=w.user_id,
+                is_read="false",
+                category="Task Updated"
+            ))
 
     cat = "Task Updated"
     msg = f"Task updated: {task.title}"
@@ -1089,3 +1121,243 @@ def get_billing_dashboard(db: Session = Depends(get_db), current_user: User = De
         "recent_payments": recent_payments,
         "subscription_analytics": plan_counts
     }
+
+
+# Task Collaboration APIs
+
+import json
+import re
+
+@app.get("/tasks/{task_id}/comments")
+def get_task_comments(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    comments = db.query(Comment).filter(Comment.task_id == task_id).order_by(Comment.id.asc()).all()
+    res = []
+    for c in comments:
+        user = db.query(User).filter(User.id == c.user_id).first()
+        reactions_dict = {}
+        try:
+            if c.reactions:
+                reactions_dict = json.loads(c.reactions)
+        except Exception:
+            pass
+        res.append({
+            "id": c.id,
+            "task_id": c.task_id,
+            "user_id": c.user_id,
+            "content": c.content,
+            "parent_id": c.parent_id,
+            "reactions": reactions_dict,
+            "is_edited": c.is_edited == "true",
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "user": {
+                "id": user.id if user else 0,
+                "name": user.name if user else "Deleted User",
+                "email": user.email if user else "",
+                "avatar": user.avatar if user else None
+            }
+        })
+    return res
+
+@app.post("/tasks/{task_id}/comments")
+def create_task_comment(task_id: int, body: CommentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    new_comment = Comment(
+        task_id=task_id,
+        user_id=current_user.id,
+        content=body.content,
+        parent_id=body.parent_id,
+        reactions="{}"
+    )
+    db.add(new_comment)
+    db.commit()
+
+    # Timeline event
+    db.add(TimelineEvent(
+        task_id=task_id,
+        user_id=current_user.id,
+        event_type="comment",
+        details=f"Added a comment"
+    ))
+
+    # Scan for mentions: e.g. @Pranay
+    mentions = re.findall(r"@([\w\.\-]+)", body.content)
+    for m in mentions:
+        m_user = db.query(User).filter(User.name.ilike(m) | User.email.ilike(m)).first()
+        if m_user and m_user.id != current_user.id:
+            db.add(Notification(
+                message=f"You were @mentioned in comment on task '{task.title}' by {current_user.name}",
+                user_id=m_user.id,
+                is_read="false",
+                category="Team Activity"
+            ))
+
+    # Notify watchers
+    watchers = db.query(Watcher).filter(Watcher.task_id == task_id).all()
+    for w in watchers:
+        if w.user_id != current_user.id:
+            db.add(Notification(
+                message=f"New comment added on watched task '{task.title}' by {current_user.name}",
+                user_id=w.user_id,
+                is_read="false",
+                category="Team Activity"
+            ))
+
+    db.commit()
+    return {"message": "Comment added successfully"}
+
+@app.put("/comments/{comment_id}")
+def update_task_comment(comment_id: int, body: CommentUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    comment = db.query(Comment).filter(Comment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if comment.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only edit your own comments")
+
+    comment.content = body.content
+    comment.is_edited = "true"
+    db.commit()
+    return {"message": "Comment updated"}
+
+@app.delete("/comments/{comment_id}")
+def delete_task_comment(comment_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    comment = db.query(Comment).filter(Comment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if comment.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Unauthorized to delete comment")
+
+    db.delete(comment)
+    db.commit()
+    return {"message": "Comment deleted"}
+
+@app.post("/comments/{comment_id}/react")
+def react_to_comment(comment_id: int, body: CommentReact, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    comment = db.query(Comment).filter(Comment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    reactions_dict = {}
+    try:
+        if comment.reactions:
+            reactions_dict = json.loads(comment.reactions)
+    except Exception:
+        pass
+
+    emoji = body.emoji
+    if emoji in reactions_dict:
+        users = reactions_dict[emoji]
+        if current_user.id in users:
+            users.remove(current_user.id)
+            if not users:
+                del reactions_dict[emoji]
+        else:
+            users.append(current_user.id)
+    else:
+        reactions_dict[emoji] = [current_user.id]
+
+    comment.reactions = json.dumps(reactions_dict)
+    db.commit()
+    return reactions_dict
+
+@app.get("/tasks/{task_id}/attachments")
+def get_task_attachments(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    attachments = db.query(Attachment).filter(Attachment.task_id == task_id).order_by(Attachment.id.desc()).all()
+    # Exclude base64 data for list size performance
+    return [{
+        "id": a.id,
+        "task_id": a.task_id,
+        "filename": a.filename,
+        "file_size": a.file_size,
+        "file_type": a.file_type,
+        "created_at": a.created_at.isoformat() if a.created_at else None
+    } for a in attachments]
+
+@app.post("/tasks/{task_id}/attachments")
+def create_task_attachment(task_id: int, body: AttachmentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    new_attachment = Attachment(
+        task_id=task_id,
+        filename=body.filename,
+        file_size=body.file_size,
+        file_type=body.file_type,
+        file_data=body.file_data
+    )
+    db.add(new_attachment)
+
+    # Timeline event
+    db.add(TimelineEvent(
+        task_id=task_id,
+        user_id=current_user.id,
+        event_type="attachment",
+        details=f"Uploaded file: {body.filename}"
+    ))
+
+    # Notify watchers
+    watchers = db.query(Watcher).filter(Watcher.task_id == task_id).all()
+    for w in watchers:
+        if w.user_id != current_user.id:
+            db.add(Notification(
+                message=f"New file uploaded on watched task '{task.title}' by {current_user.name}",
+                user_id=w.user_id,
+                is_read="false",
+                category="Team Activity"
+            ))
+
+    db.commit()
+    return {"message": "File uploaded successfully"}
+
+@app.get("/attachments/{attachment_id}/download")
+def download_attachment(attachment_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    attachment = db.query(Attachment).filter(Attachment.id == attachment_id).first()
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    return {
+        "filename": attachment.filename,
+        "file_type": attachment.file_type,
+        "file_data": attachment.file_data
+    }
+
+@app.get("/tasks/{task_id}/watchers")
+def get_task_watchers(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    watchers = db.query(Watcher).filter(Watcher.task_id == task_id).all()
+    is_watching = any(w.user_id == current_user.id for w in watchers)
+    return {
+        "watchers_count": len(watchers),
+        "is_watching": is_watching
+    }
+
+@app.post("/tasks/{task_id}/watch")
+def toggle_task_watch(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    watcher = db.query(Watcher).filter(Watcher.task_id == task_id, Watcher.user_id == current_user.id).first()
+    if watcher:
+        db.delete(watcher)
+        db.commit()
+        return {"is_watching": False}
+    else:
+        new_watcher = Watcher(task_id=task_id, user_id=current_user.id)
+        db.add(new_watcher)
+        db.commit()
+        return {"is_watching": True}
+
+@app.get("/tasks/{task_id}/timeline")
+def get_task_timeline(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    events = db.query(TimelineEvent).filter(TimelineEvent.task_id == task_id).order_by(TimelineEvent.id.desc()).all()
+    res = []
+    for e in events:
+        user = db.query(User).filter(User.id == e.user_id).first()
+        res.append({
+            "id": e.id,
+            "task_id": e.task_id,
+            "user_id": e.user_id,
+            "event_type": e.event_type,
+            "details": e.details,
+            "created_at": e.created_at.isoformat() if e.created_at else None,
+            "user_name": user.name if user else "System"
+        })
+    return res

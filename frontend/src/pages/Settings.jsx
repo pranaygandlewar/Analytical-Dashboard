@@ -25,7 +25,8 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  CreditCard
+  CreditCard,
+  LogOut
 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 
@@ -36,6 +37,12 @@ function Settings({ darkMode, setDarkMode }) {
 
   const authUser = useAuthStore((state) => state.user);
   const [activeTab, setActiveTab] = useState(tabParam);
+
+  const handleLogout = () => {
+    useAuthStore.getState().logout();
+    navigate("/login");
+    toast.success("Logged out successfully");
+  };
   
   // Billing States
   const [billingCycle, setBillingCycle] = useState("monthly");
@@ -387,6 +394,14 @@ function Settings({ darkMode, setDarkMode }) {
         >
           <CreditCard size={16} />
           Billing & Subscription
+        </button>
+
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs bg-red-500/10 hover:bg-red-500 hover:text-white text-red-500 border border-red-500/25 transition-all duration-300 ml-auto active:scale-[0.98]"
+        >
+          <LogOut size={13} />
+          Logout Account
         </button>
       </div>
 
@@ -1045,6 +1060,22 @@ function Settings({ darkMode, setDarkMode }) {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Professional Footer Logout Panel */}
+      <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div>
+          <h4 className="font-bold text-slate-900 dark:text-white text-sm">Session Control</h4>
+          <p className="text-xs text-slate-400 mt-1">Disconnect this browser instance from your team workspace</p>
+        </div>
+        
+        <button
+          onClick={handleLogout}
+          className="px-6 py-3.5 bg-red-650 hover:bg-red-750 text-white rounded-2xl font-bold text-xs shadow-lg shadow-red-650/10 transition active:scale-[0.98] flex items-center gap-2"
+        >
+          <LogOut size={14} />
+          <span>Logout Session</span>
+        </button>
       </div>
     </AppLayout>
   );
