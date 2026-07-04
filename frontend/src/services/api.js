@@ -1,7 +1,13 @@
 import axios from "axios";
 
+const apiUrl = import.meta.env.VITE_API_URL;
+
+if (!apiUrl) {
+  console.error("VITE_API_URL environment variable is missing. Please configure it in your .env file.");
+}
+
 const api = axios.create({
-  baseURL: "http://127.0.0.1:8000",
+  baseURL: apiUrl || "http://127.0.0.1:8000",
 });
 
 api.interceptors.request.use(

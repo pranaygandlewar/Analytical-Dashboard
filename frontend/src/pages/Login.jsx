@@ -64,7 +64,21 @@ export default function Login() {
     setLoading(true);
     try {
       sessionStorage.setItem("token", session.token);
+      
+      // Update auth store state instantly to satisfy ProtectedRoute guard immediately
+      useAuthStore.setState({
+        user: session.user,
+        isAuthenticated: true,
+        authLoading: false
+      });
+
       await checkAuth();
+      
+      if (!useAuthStore.getState().isAuthenticated) {
+        toast.error("Session has expired. Please sign in again.");
+        return;
+      }
+
       toast.success(`Logged in as ${session.user.name}`);
       navigate("/dashboard");
     } catch {
