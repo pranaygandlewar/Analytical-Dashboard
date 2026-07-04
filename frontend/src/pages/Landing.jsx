@@ -21,7 +21,6 @@ import useAuthStore from "../store/authStore";
 export default function Landing() {
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  
   // Carousel states
   const [activeSlide, setActiveSlide] = useState(0);
   const screenshots = [
