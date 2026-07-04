@@ -67,9 +67,7 @@ export default function Landing() {
       {/* Header Panel */}
       <header className="sticky top-0 z-50 bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl border-b dark:border-slate-900 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white shadow-lg text-lg">
-            T
-          </div>
+          <img src="/logo.png" alt="Logo" className="h-10 w-10 rounded-xl object-cover shadow" />
           <span className="font-extrabold text-xl tracking-tight text-slate-900 dark:text-white">TeamPulse</span>
         </div>
 
@@ -280,9 +278,7 @@ export default function Landing() {
       <footer className="bg-slate-100 dark:bg-slate-950 border-t dark:border-slate-900 py-12 px-6 text-center text-xs text-slate-450 font-bold">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
-            <div className="h-6 w-6 bg-indigo-600 rounded flex items-center justify-center font-bold text-white text-xs">
-              T
-            </div>
+            <img src="/logo.png" alt="Logo" className="h-6 w-6 rounded object-cover" />
             <span className="dark:text-white text-sm">TeamPulse</span>
           </div>
 

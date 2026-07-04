@@ -55,9 +55,7 @@ export default function Signup() {
         
         {/* Left */}
         <div className="p-16 flex flex-col justify-center text-white border-r border-white/10">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-2xl font-bold shadow-lg mb-10">
-            T
-          </div>
+          <img src="/logo.png" alt="Logo" className="w-14 h-14 rounded-2xl object-cover shadow-lg mb-10" />
 
           <h1 className="text-5xl font-bold tracking-tight">
             Join TeamPulse

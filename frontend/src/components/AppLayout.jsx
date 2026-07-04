@@ -60,13 +60,8 @@ function AppLayout({ children }) {
           >
             <Menu size={20} />
           </button>
-          
           <div className="flex items-center gap-2">
-            {companyLogo ? (
-              <img src={companyLogo} alt="Logo" className="h-6 w-6 rounded-lg object-cover" />
-            ) : (
-              <div className="h-6 w-6 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-[10px]">T</div>
-            )}
+            <img src={companyLogo || "/logo.png"} alt="Logo" className="h-6 w-6 rounded-lg object-cover" />
             <span className="font-extrabold text-slate-900 dark:text-white text-base">{companyName}</span>
           </div>
         </div>

@@ -102,13 +102,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen, c
         {/* Sidebar Header (Logo & Collapse toggle) */}
         <div className="mb-14 flex items-center justify-between">
           <div className="flex items-center gap-3 overflow-hidden">
-            {companyLogo ? (
-              <img src={companyLogo} alt="Logo" className="w-12 h-12 rounded-2xl object-cover shadow-lg shrink-0" />
-            ) : (
-              <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center font-bold text-xl shadow-lg shrink-0">
-                {companyName ? companyName.charAt(0).toUpperCase() : "T"}
-              </div>
-            )}
+            <img src={companyLogo || "/logo.png"} alt="Logo" className="w-12 h-12 rounded-2xl object-cover shadow-lg shrink-0" />
 
             {!isCollapsed && (
               <motion.div
