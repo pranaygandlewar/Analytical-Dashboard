@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { ShieldCheck, User } from "lucide-react";
 import toast from "react-hot-toast";
 import useAuthStore from "../store/authStore";
+import { motion } from "framer-motion";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -41,7 +42,13 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950 flex items-center justify-center px-8">
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -15 }}
+      transition={{ duration: 0.35, ease: "easeInOut" }}
+      className="relative min-h-screen overflow-hidden bg-slate-950 flex items-center justify-center px-8"
+    >
       
       {/* Background */}
       <div className="absolute inset-0">
@@ -173,6 +180,6 @@ export default function Login() {
           </p>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

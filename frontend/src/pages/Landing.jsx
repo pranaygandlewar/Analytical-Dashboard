@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { 
   Sparkles, 
   ArrowRight, 
@@ -55,7 +56,13 @@ export default function Landing() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 transition-colors duration-300">
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -15 }}
+      transition={{ duration: 0.35, ease: "easeInOut" }}
+      className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 transition-colors duration-300"
+    >
       
       {/* Header Panel */}
       <header className="sticky top-0 z-50 bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl border-b dark:border-slate-900 px-6 py-4 flex items-center justify-between">
@@ -288,6 +295,6 @@ export default function Landing() {
         </div>
       </footer>
 
-    </div>
+    </motion.div>
   );
 }
