@@ -5,10 +5,18 @@ import CommandPalette from "./CommandPalette";
 import AIAssistant from "./AIAssistant";
 import { Menu } from "lucide-react";
 import api from "../services/api";
+import { motion } from "framer-motion";
 
 function AppLayout({ children }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem("sidebar_collapsed") === "true";
+  });
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  const handleSetCollapsed = (val) => {
+    setIsCollapsed(val);
+    localStorage.setItem("sidebar_collapsed", val);
+  };
 
   // Personalization settings
   const [companyName, setCompanyName] = useState("TeamPulse");
@@ -79,7 +87,7 @@ function AppLayout({ children }) {
 
         <Sidebar 
           isCollapsed={isCollapsed} 
-          setIsCollapsed={setIsCollapsed} 
+          setIsCollapsed={handleSetCollapsed} 
           isMobileOpen={isMobileOpen} 
           setIsMobileOpen={setIsMobileOpen}
           companyName={companyName}
@@ -92,7 +100,13 @@ function AppLayout({ children }) {
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 sm:px-8 pb-8">
-            {children}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+            >
+              {children}
+            </motion.div>
           </div>
         </div>
       </div>

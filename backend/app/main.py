@@ -250,20 +250,26 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
 
 @app.post("/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
+    from sqlalchemy import func
+    email_clean = user.email.strip().lower()
+    print(f"[LOGIN DEBUG] Received login request for email: '{user.email}' (cleaned: '{email_clean}'), password length: {len(user.password)}")
+    
     db_user = db.query(User).filter(
-        User.email == user.email
+        func.lower(User.email) == email_clean
     ).first()
 
     if not db_user:
+        print(f"[LOGIN DEBUG] No user found in database with email: '{email_clean}'")
         raise HTTPException(
             status_code=400,
             detail="Invalid credentials"
         )
 
-    if not verify_password(
-        user.password,
-        db_user.password
-    ):
+    print(f"[LOGIN DEBUG] User found: '{db_user.email}' (ID: {db_user.id})")
+    is_verified = verify_password(user.password, db_user.password)
+    print(f"[LOGIN DEBUG] Password verification result: {is_verified}")
+
+    if not is_verified:
         raise HTTPException(
             status_code=400,
             detail="Invalid credentials"
