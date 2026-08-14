@@ -180,13 +180,16 @@ function App() {
     if (!saved) {
       sessionStorage.setItem("theme", "light");
     }
-  }, []);
+  }, [checkAuth]);
 
   useEffect(() => {
     if (!isAuthenticated) {
-      setDarkMode(false);
+      // Remove any persisted theme and DOM class immediately
       sessionStorage.removeItem("theme");
       document.documentElement.classList.remove("dark");
+      // Defer the state update to avoid synchronous setState inside an effect
+      const t = setTimeout(() => setDarkMode(false), 0);
+      return () => clearTimeout(t);
     }
   }, [isAuthenticated]);
 

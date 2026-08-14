@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.sql import func
 from .database import Base
 
@@ -10,6 +10,7 @@ class User(Base):
     name = Column(String)
     email = Column(String, unique=True, index=True)
     password = Column(String)
+    password_hash = Column(String, nullable=True)
     role = Column(String)
     avatar = Column(String, nullable=True)
     job_title = Column(String, nullable=True)
@@ -24,6 +25,30 @@ class User(Base):
     renewal_date = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=func.now())
     last_login = Column(DateTime(timezone=True), default=func.now())
+    
+    # Extended Multi-User Auth Columns
+    email_verified = Column(Boolean, default=False)
+    auth_provider = Column(String, default="email")
+    google_id = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
+
+
+class OTPVerification(Base):
+    __tablename__ = "otp_verifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    email = Column(String, index=True)
+    otp_hash = Column(String)
+    purpose = Column(String)  # "register" or "reset_password"
+    attempts = Column(Integer, default=0)
+    expires_at = Column(DateTime(timezone=True))
+    resend_available_at = Column(DateTime(timezone=True), nullable=True)
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+    reset_token_hash = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=func.now())
 
 
 class Task(Base):

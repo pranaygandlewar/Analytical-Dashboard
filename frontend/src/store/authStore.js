@@ -1,9 +1,12 @@
 import { create } from "zustand";
 import api from "../services/api";
 
+const SESSIONS_KEY = "teampulse_sessions";
+const ACTIVE_TOKEN_KEY = "teampulse_active_token";
+
 const getSavedSessions = () => {
   try {
-    const data = localStorage.getItem("teampulse_sessions");
+    const data = localStorage.getItem(SESSIONS_KEY);
     return data ? JSON.parse(data) : [];
   } catch {
     return [];
@@ -11,97 +14,240 @@ const getSavedSessions = () => {
 };
 
 const saveSessions = (sessions) => {
-  localStorage.setItem("teampulse_sessions", JSON.stringify(sessions));
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+};
+
+const getActiveToken = () => (
+  sessionStorage.getItem("token") || localStorage.getItem(ACTIVE_TOKEN_KEY)
+);
+
+const setActiveToken = (token) => {
+  sessionStorage.setItem("token", token);
+  localStorage.setItem(ACTIVE_TOKEN_KEY, token);
+};
+
+const clearActiveToken = () => {
+  sessionStorage.removeItem("token");
+  localStorage.removeItem(ACTIVE_TOKEN_KEY);
+};
+
+const getErrorMessage = (error, fallback) => {
+  const detail = error.response?.data?.detail;
+
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item.msg).join(". ");
+  }
+
+  if (typeof detail === "string") {
+    return detail;
+  }
+
+  return fallback;
+};
+
+const persistSession = (token, user) => {
+  setActiveToken(token);
+  const sessions = getSavedSessions();
+  const existingIdx = sessions.findIndex((session) => session.user.email === user.email);
+  const nextSession = { token, user };
+
+  if (existingIdx !== -1) {
+    sessions[existingIdx] = nextSession;
+  } else {
+    sessions.unshift(nextSession);
+  }
+
+  saveSessions(sessions);
+};
+
+const removeSavedSession = (email) => {
+  const sessions = getSavedSessions();
+  const updated = sessions.filter((session) => session.user.email !== email);
+  saveSessions(updated);
+  return updated;
 };
 
 const useAuthStore = create((set) => ({
   user: null,
   isAuthenticated: false,
   authLoading: true,
+  authError: "",
 
   login: async (email, password) => {
     try {
-      const res = await api.post("/login", {
-        email,
-        password,
-      });
-
-      sessionStorage.setItem(
-        "token",
-        res.data.access_token
-      );
-
-      // Save/update session in localStorage
-      const sessions = getSavedSessions();
-      const existingIdx = sessions.findIndex(s => s.user.email === res.data.user.email);
-      const newSession = { token: res.data.access_token, user: res.data.user };
-      if (existingIdx !== -1) {
-        sessions[existingIdx] = newSession;
-      } else {
-        sessions.push(newSession);
-      }
-      saveSessions(sessions);
+      const res = await api.post("/auth/login", { email, password });
+      persistSession(res.data.access_token, res.data.user);
 
       set({
         user: res.data.user,
         isAuthenticated: true,
         authLoading: false,
+        authError: "",
       });
 
-      return {
-        success: true,
-        user: res.data.user,
-      };
+      return { success: true, user: res.data.user };
     } catch (error) {
-      let message = "Login failed";
+      const message = getErrorMessage(error, "Invalid email or password.");
+      set({ authLoading: false, authError: message });
+      return { success: false, message };
+    }
+  },
 
-      if (Array.isArray(error.response?.data?.detail)) {
-        message = error.response.data.detail[0].msg;
-      } else if (
-        typeof error.response?.data?.detail === "string"
-      ) {
-        message = error.response.data.detail;
-      }
-
-      set({
-        authLoading: false,
+  signup: async (name, email, password, confirmPassword, role) => {
+    try {
+      const res = await api.post("/auth/register", {
+        name,
+        email,
+        password,
+        confirm_password: confirmPassword,
+        role,
       });
 
+      return { success: true, data: res.data };
+    } catch (error) {
       return {
         success: false,
-        message,
+        message: getErrorMessage(error, "Signup failed"),
       };
     }
   },
 
-  signup: async (name, email, password, role) => {
+  verifyEmail: async (email, otp) => {
     try {
-      await api.post("/signup", {
-        name,
-        email,
-        password,
-        role,
+      const res = await api.post("/auth/verify-email", { email, otp });
+      persistSession(res.data.access_token, res.data.user);
+      sessionStorage.removeItem("pending_verification_email");
+
+      set({
+        user: res.data.user,
+        isAuthenticated: true,
+        authLoading: false,
+        authError: "",
       });
 
-      return { success: true };
+      return { success: true, user: res.data.user };
     } catch (error) {
-      let message = "Signup failed";
-
-      if (
-        typeof error.response?.data?.detail === "string"
-      ) {
-        message = error.response.data.detail;
-      }
-
       return {
         success: false,
-        message,
+        message: getErrorMessage(error, "Verification failed"),
+      };
+    }
+  },
+
+  resendVerificationOtp: async (email) => {
+    try {
+      const res = await api.post("/auth/resend-verification-otp", { email });
+      return { success: true, data: res.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: getErrorMessage(error, "Could not resend verification code"),
+      };
+    }
+  },
+
+  forgotPassword: async (email) => {
+    try {
+      const res = await api.post("/auth/forgot-password", { email });
+      return { success: true, data: res.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: getErrorMessage(error, "Could not start password reset"),
+      };
+    }
+  },
+
+  verifyResetOtp: async (email, otp) => {
+    try {
+      const res = await api.post("/auth/verify-reset-otp", { email, otp });
+      sessionStorage.setItem("reset_password_email", res.data.email);
+      sessionStorage.setItem("reset_password_token", res.data.reset_token);
+      return { success: true, data: res.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: getErrorMessage(error, "Verification failed"),
+      };
+    }
+  },
+
+  resendResetOtp: async (email) => {
+    try {
+      const res = await api.post("/auth/resend-reset-otp", { email });
+      return { success: true, data: res.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: getErrorMessage(error, "Could not resend reset code"),
+      };
+    }
+  },
+
+  resetPassword: async (email, resetToken, newPassword, confirmPassword) => {
+    try {
+      const res = await api.post("/auth/reset-password", {
+        email,
+        reset_token: resetToken,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+      });
+
+      sessionStorage.removeItem("reset_password_email");
+      sessionStorage.removeItem("reset_password_token");
+      return { success: true, data: res.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: getErrorMessage(error, "Password reset failed"),
+      };
+    }
+  },
+
+  changePassword: async (currentPassword, newPassword, confirmPassword) => {
+    try {
+      const res = await api.post("/auth/change-password", {
+        current_password: currentPassword,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+      });
+
+      return { success: true, data: res.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: getErrorMessage(error, "Failed to change password"),
+      };
+    }
+  },
+
+  completeOAuthLogin: async (token) => {
+    setActiveToken(token);
+
+    try {
+      const res = await api.get("/auth/me");
+      persistSession(token, res.data);
+
+      set({
+        user: res.data,
+        isAuthenticated: true,
+        authLoading: false,
+        authError: "",
+      });
+
+      return { success: true, user: res.data };
+    } catch (error) {
+      clearActiveToken();
+      set({ user: null, isAuthenticated: false, authLoading: false });
+      return {
+        success: false,
+        message: getErrorMessage(error, "Google login failed"),
       };
     }
   },
 
   checkAuth: async () => {
-    let token = sessionStorage.getItem("token");
+    const token = getActiveToken();
 
     if (!token) {
       set({
@@ -112,25 +258,20 @@ const useAuthStore = create((set) => ({
       return;
     }
 
-    try {
-      const res = await api.get("/me");
+    setActiveToken(token);
 
-      // Update session user details
-      const currentSessions = getSavedSessions();
-      const idx = currentSessions.findIndex(s => s.user.email === res.data.email);
-      if (idx !== -1) {
-        currentSessions[idx].user = res.data;
-        saveSessions(currentSessions);
-      }
+    try {
+      const res = await api.get("/auth/me");
+      persistSession(token, res.data);
 
       set({
         user: res.data,
         isAuthenticated: true,
         authLoading: false,
+        authError: "",
       });
     } catch {
-      sessionStorage.removeItem("token");
-
+      clearActiveToken();
       set({
         user: null,
         isAuthenticated: false,
@@ -141,33 +282,30 @@ const useAuthStore = create((set) => ({
 
   switchAccount: (email) => {
     const sessions = getSavedSessions();
-    const target = sessions.find(s => s.user.email === email);
+    const target = sessions.find((session) => session.user.email === email);
     if (target) {
-      sessionStorage.setItem("token", target.token);
+      persistSession(target.token, target.user);
       set({
         user: target.user,
         isAuthenticated: true,
+        authLoading: false,
       });
-      const remaining = sessions.filter(s => s.user.email !== email);
-      saveSessions([target, ...remaining]);
       window.location.reload();
     }
   },
 
   removeAccount: (email) => {
-    const sessions = getSavedSessions();
-    const updated = sessions.filter(s => s.user.email !== email);
-    saveSessions(updated);
-
+    const updated = removeSavedSession(email);
     const activeUser = useAuthStore.getState().user;
+
     if (activeUser && activeUser.email === email) {
       if (updated.length > 0) {
         const next = updated[0];
-        sessionStorage.setItem("token", next.token);
-        set({ user: next.user });
+        persistSession(next.token, next.user);
+        set({ user: next.user, isAuthenticated: true });
         window.location.reload();
       } else {
-        sessionStorage.removeItem("token");
+        clearActiveToken();
         set({ user: null, isAuthenticated: false });
         window.location.href = "/login";
       }
@@ -177,59 +315,44 @@ const useAuthStore = create((set) => ({
   logout: () => {
     const activeUser = useAuthStore.getState().user;
     if (activeUser) {
-      const sessions = getSavedSessions();
-      const updated = sessions.filter(s => s.user.email !== activeUser.email);
-      saveSessions(updated);
-
-      if (updated.length > 0) {
-        const next = updated[0];
-        sessionStorage.setItem("token", next.token);
-        set({ user: next.user });
-        window.location.reload();
-      } else {
-        sessionStorage.removeItem("token");
-        set({
-          user: null,
-          isAuthenticated: false,
-          authLoading: false,
-        });
-      }
-    } else {
-      sessionStorage.removeItem("token");
-      set({
-        user: null,
-        isAuthenticated: false,
-        authLoading: false,
-      });
+      removeSavedSession(activeUser.email);
     }
+
+    api.post("/auth/logout").catch(() => {});
+    clearActiveToken();
+    set({
+      user: null,
+      isAuthenticated: false,
+      authLoading: false,
+      authError: "",
+    });
   },
 
   logoutCurrent: () => {
     const activeUser = useAuthStore.getState().user;
-    if (activeUser) {
-      const sessions = getSavedSessions();
-      const updated = sessions.filter(s => s.user.email !== activeUser.email);
-      saveSessions(updated);
+    const updated = activeUser ? removeSavedSession(activeUser.email) : getSavedSessions();
 
-      if (updated.length > 0) {
-        const next = updated[0];
-        sessionStorage.setItem("token", next.token);
-        set({ user: next.user });
-        window.location.reload();
-      } else {
-        sessionStorage.removeItem("token");
-        set({ user: null, isAuthenticated: false });
-        window.location.href = "/login";
-      }
+    if (updated.length > 0) {
+      const next = updated[0];
+      persistSession(next.token, next.user);
+      set({ user: next.user, isAuthenticated: true, authLoading: false });
+      window.location.reload();
+      return;
     }
+
+    api.post("/auth/logout").catch(() => {});
+    clearActiveToken();
+    set({ user: null, isAuthenticated: false, authLoading: false });
+    window.location.href = "/login";
   },
 
   logoutAll: () => {
-    localStorage.removeItem("teampulse_sessions");
-    sessionStorage.removeItem("token");
-    set({ user: null, isAuthenticated: false });
+    localStorage.removeItem(SESSIONS_KEY);
+    api.post("/auth/logout").catch(() => {});
+    clearActiveToken();
+    set({ user: null, isAuthenticated: false, authLoading: false });
     window.location.href = "/login";
-  }
+  },
 }));
 
 export default useAuthStore;

@@ -1,17 +1,163 @@
 from typing import Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
+import re
+
+
+def validate_password(value: str):
+    if len(value) < 8:
+        raise ValueError("Password must be at least 8 characters long")
+    if not re.search(r"[A-Z]", value):
+        raise ValueError("Password must contain at least one uppercase letter")
+    if not re.search(r"[a-z]", value):
+        raise ValueError("Password must contain at least one lowercase letter")
+    if not re.search(r"[0-9]", value):
+        raise ValueError("Password must contain at least one digit")
+    return value
+
+
+def validate_otp(value: str):
+    if not re.fullmatch(r"\d{6}", value.strip()):
+        raise ValueError("Verification code must be 6 digits")
+    return value.strip()
 
 
 class UserCreate(BaseModel):
     name: str
     email: EmailStr
     password: str
-    role: str
+    confirm_password: str
+    role: str = "member"
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v):
+        if len(v.strip()) < 2:
+            raise ValueError("Full name must be at least 2 characters")
+        return v.strip()
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v):
+        return str(v).strip().lower()
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v):
+        return validate_password(v)
+
+    @field_validator("confirm_password")
+    @classmethod
+    def passwords_match(cls, v, info):
+        password = info.data.get("password")
+        if password and v != password:
+            raise ValueError("Passwords do not match")
+        return v
 
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v):
+        return str(v).strip().lower()
+
+
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    otp: str
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v):
+        return str(v).strip().lower()
+
+    @field_validator("otp")
+    @classmethod
+    def validate_code(cls, v):
+        return validate_otp(v)
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v):
+        return str(v).strip().lower()
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v):
+        return str(v).strip().lower()
+
+
+class VerifyResetOTPRequest(BaseModel):
+    email: EmailStr
+    otp: str
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v):
+        return str(v).strip().lower()
+
+    @field_validator("otp")
+    @classmethod
+    def validate_code(cls, v):
+        return validate_otp(v)
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    reset_token: str
+    new_password: str
+    confirm_password: str
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v):
+        return str(v).strip().lower()
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, v):
+        return validate_password(v)
+
+    @field_validator("confirm_password")
+    @classmethod
+    def passwords_match(cls, v, info):
+        new_password = info.data.get("new_password")
+        if new_password and v != new_password:
+            raise ValueError("Passwords do not match")
+        return v
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, v):
+        return validate_password(v)
+
+    @field_validator("confirm_password")
+    @classmethod
+    def passwords_match(cls, v, info):
+        new_password = info.data.get("new_password")
+        if new_password and v != new_password:
+            raise ValueError("Passwords do not match")
+        return v
+
+
+class GoogleLoginRequest(BaseModel):
+    credential: str
 
 
 class TaskCreate(BaseModel):
@@ -47,6 +193,20 @@ class ProfileUpdate(BaseModel):
 class PasswordUpdate(BaseModel):
     current_password: str
     new_password: str
+    confirm_password: Optional[str] = None
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, v):
+        return validate_password(v)
+
+    @field_validator("confirm_password")
+    @classmethod
+    def passwords_match(cls, v, info):
+        new_password = info.data.get("new_password")
+        if v is not None and new_password and v != new_password:
+            raise ValueError("Passwords do not match")
+        return v
 
 
 class CommentCreate(BaseModel):

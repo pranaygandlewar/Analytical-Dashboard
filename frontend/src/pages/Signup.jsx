@@ -1,29 +1,86 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { ShieldCheck, User } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Eye, EyeOff, ShieldCheck, UserPlus } from "lucide-react";
 import toast from "react-hot-toast";
+import AuthShell from "../components/AuthShell";
 import useAuthStore from "../store/authStore";
 
 export default function Signup() {
   const navigate = useNavigate();
+
   const signup = useAuthStore((state) => state.signup);
 
-  const [selectedRole, setSelectedRole] = useState("member");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSignup = async () => {
-    setLoading(true);
+  const handleSignup = async (event) => {
+    event.preventDefault();
+
     setError("");
 
+    const cleanName = name.trim();
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanName) {
+      setError("Please enter your full name.");
+      return;
+    }
+
+    if (cleanName.length < 2) {
+      setError("Full name must be at least 2 characters.");
+      return;
+    }
+
+    if (!cleanEmail) {
+      setError("Please enter your email address.");
+      return;
+    }
+
+    if (!password) {
+      setError("Please enter a password.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long.");
+      return;
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      setError("Password must contain at least one uppercase letter.");
+      return;
+    }
+
+    if (!/[a-z]/.test(password)) {
+      setError("Password must contain at least one lowercase letter.");
+      return;
+    }
+
+    if (!/[0-9]/.test(password)) {
+      setError("Password must contain at least one digit.");
+      return;
+    }
+
+    setLoading(true);
+
     const result = await signup(
-      name,
-      email,
+      cleanName,
+      cleanEmail,
       password,
-      selectedRole
+      confirmPassword
     );
 
     if (!result.success) {
@@ -33,149 +90,235 @@ export default function Signup() {
       return;
     }
 
-    toast.success("Account created successfully");
-    navigate("/login");
+    sessionStorage.setItem(
+      "pending_verification_email",
+      cleanEmail
+    );
+
+    toast.success("Verification code sent to your email.");
+
+    navigate(
+      `/verify-email?email=${encodeURIComponent(cleanEmail)}`
+    );
+
     setLoading(false);
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950 flex items-center justify-center px-8">
-      
-      {/* Background */}
-      <div className="absolute inset-0">
-        <div className="absolute top-[-150px] left-[-100px] w-[600px] h-[600px] bg-indigo-600/15 blur-3xl rounded-full animate-[pulse_10s_ease-in-out_infinite]" />
-
-        <div className="absolute bottom-[-150px] right-[-100px] w-[600px] h-[600px] bg-cyan-500/10 blur-3xl rounded-full animate-[pulse_12s_ease-in-out_infinite]" />
-
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.12),transparent_35%)]" />
-      </div>
-
-      {/* Main Card */}
-      <div className="relative z-10 w-full max-w-6xl rounded-[36px] border border-white/10 bg-white/5 backdrop-blur-2xl shadow-2xl overflow-hidden grid md:grid-cols-2">
-        
-        {/* Left */}
-        <div className="p-16 flex flex-col justify-center text-white border-r border-white/10">
-          <img src="/logo.png" alt="Logo" className="w-14 h-14 rounded-2xl object-cover shadow-lg mb-10" />
-
-          <h1 className="text-5xl font-bold tracking-tight">
-            Join TeamPulse
-          </h1>
-
-          <p className="mt-6 text-slate-300 text-lg leading-relaxed max-w-lg">
-            Create your workspace and streamline collaboration with secure team productivity tools.
-          </p>
-
-          <div className="mt-12 space-y-5">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              Team collaboration & management
+    <AuthShell
+      title="Join TeamPulse"
+      subtitle="Create your secure TeamPulse account and start managing your team's productivity, projects, and analytics."
+      highlights={[
+        "Secure email verification",
+        "Role-based team workspace",
+        "Real-time productivity insights",
+      ]}
+    >
+      <div className="w-full max-w-xl mx-auto">
+        <div className="mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center">
+              <UserPlus size={20} />
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              Role-based secure workspace
-            </div>
+            <div>
+              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900">
+                Create Account
+              </h2>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              Real-time productivity insights
+              <p className="text-slate-500 mt-1">
+                Create your TeamPulse member account
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Right */}
-        <div className="bg-white p-16">
-          <h2 className="text-4xl font-bold text-slate-900">
-            Create Account
-          </h2>
-
-          <p className="text-slate-500 mt-3">
-            Start your workspace journey
-          </p>
-
-          {/* Smooth Role Switch */}
-          <div className="relative mt-10 bg-white-100 rounded-2xl p-1 flex">
-            <div
-              className={`absolute top-1 bottom-1 w-1/2 rounded-xl bg-slate-900 shadow-md transition-all duration-500 ${
-                selectedRole === "admin"
-                  ? "left-1"
-                  : "left-[50%]"
-              }`}
-            />
-
-            <button
-              onClick={() => setSelectedRole("admin")}
-              className={`relative z-10 flex-1 py-4 flex items-center justify-center gap-2 font-semibold transition duration-300 ${
-                selectedRole === "admin"
-                  ? "text-white"
-                  : "text-slate-600"
-              }`}
-            >
-              <ShieldCheck size={18} />
-              Admin
-            </button>
-
-            <button
-              onClick={() => setSelectedRole("member")}
-              className={`relative z-10 flex-1 py-4 flex items-center justify-center gap-2 font-semibold transition duration-300 ${
-                selectedRole === "member"
-                  ? "text-white"
-                  : "text-slate-600"
-              }`}
-            >
-              <User size={18} />
-              Member
-            </button>
-          </div>
-
+        <form onSubmit={handleSignup} className="space-y-5">
           {error && (
-            <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 text-red-600 p-4">
+            <div
+              role="alert"
+              className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
+            >
               {error}
             </div>
           )}
 
-          <div className="mt-8 space-y-5">
-            <input
-              type="text"
-              placeholder="Full Name"
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 outline-none focus:ring-2 focus:ring-indigo-200 transition"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-
-            <input
-              type="email"
-              placeholder="Email address"
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 outline-none focus:ring-2 focus:ring-indigo-200 transition"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-
-            <input
-              type="password"
-              placeholder="Password"
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 outline-none focus:ring-2 focus:ring-indigo-200 transition"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-
-            <button
-              onClick={handleSignup}
-              disabled={loading}
-              className="w-full rounded-2xl bg-slate-900 hover:bg-slate-800 text-white py-4 font-semibold transition-all duration-300 hover:scale-[1.01]"
+          {/* Full Name */}
+          <div>
+            <label
+              htmlFor="signup-name"
+              className="block text-sm font-medium text-slate-700 mb-2"
             >
-              {loading ? "Creating..." : "Create Account"}
-            </button>
+              Full Name
+            </label>
+
+            <input
+              id="signup-name"
+              type="text"
+              autoComplete="name"
+              placeholder="Enter your full name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              disabled={loading}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-slate-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
+            />
           </div>
 
-          <p className="mt-8 text-center text-slate-500">
-            Already have an account?{" "}
-            <Link
-              to="/login"
-              className="font-semibold text-indigo-600 hover:underline"
+          {/* Email */}
+          <div>
+            <label
+              htmlFor="signup-email"
+              className="block text-sm font-medium text-slate-700 mb-2"
             >
-              Sign in
-            </Link>
-          </p>
-        </div>
+              Email Address
+            </label>
+
+            <input
+              id="signup-email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              disabled={loading}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-slate-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
+            />
+          </div>
+
+          {/* Password */}
+          <div>
+            <label
+              htmlFor="signup-password"
+              className="block text-sm font-medium text-slate-700 mb-2"
+            >
+              Password
+            </label>
+
+            <div className="relative">
+              <input
+                id="signup-password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="Create a strong password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                disabled={loading}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 pr-14 text-slate-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword((value) => !value)}
+                disabled={loading}
+                aria-label={
+                  showPassword
+                    ? "Hide password"
+                    : "Show password"
+                }
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+              >
+                {showPassword ? (
+                  <EyeOff size={20} />
+                ) : (
+                  <Eye size={20} />
+                )}
+              </button>
+            </div>
+
+            <p className="mt-2 text-xs text-slate-400">
+              At least 8 characters, including uppercase, lowercase,
+              and a number.
+            </p>
+          </div>
+
+          {/* Confirm Password */}
+          <div>
+            <label
+              htmlFor="signup-confirm-password"
+              className="block text-sm font-medium text-slate-700 mb-2"
+            >
+              Confirm Password
+            </label>
+
+            <div className="relative">
+              <input
+                id="signup-confirm-password"
+                type={showConfirmPassword ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="Re-enter your password"
+                value={confirmPassword}
+                onChange={(event) =>
+                  setConfirmPassword(event.target.value)
+                }
+                disabled={loading}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 pr-14 text-slate-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
+              />
+
+              <button
+                type="button"
+                onClick={() =>
+                  setShowConfirmPassword((value) => !value)
+                }
+                disabled={loading}
+                aria-label={
+                  showConfirmPassword
+                    ? "Hide confirm password"
+                    : "Show confirm password"
+                }
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+              >
+                {showConfirmPassword ? (
+                  <EyeOff size={20} />
+                ) : (
+                  <Eye size={20} />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Account type information */}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 text-indigo-600">
+                <ShieldCheck size={19} />
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-slate-800">
+                  Team Member Account
+                </p>
+
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  New public accounts are created as team members.
+                  Administrator accounts are managed separately for
+                  security.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-2xl bg-slate-900 py-4 font-semibold text-white transition hover:bg-slate-800 hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
+          >
+            {loading
+              ? "Creating account..."
+              : "Create Account"}
+          </button>
+        </form>
+
+        <p className="mt-7 text-center text-sm text-slate-500">
+          Already have an account?{" "}
+          <Link
+            to="/login"
+            className="font-semibold text-indigo-600 hover:underline"
+          >
+            Sign in
+          </Link>
+        </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }
