@@ -2,7 +2,7 @@ export const projectTasks = {
   todo: [
     {
       id: "1",
-      title: "Design landing page",
+      title: "Frontend ",
       assignee: "Aman",
       due: "May 20",
       priority: "High",
